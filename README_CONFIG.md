@@ -1,0 +1,37 @@
+### `GoogleDrive` section:
+
+- `ServiceAccountKeyFileName`:
+    name of a JSON file that contains the service account
+    credentials
+- `SharedDriveId`:
+    id of the shared drive (shown on the web interface on the URL
+    after `drive.google.com/drive/folders/`)
+- `SubTreeRootId`:
+    id of the subtree root (shown on the web interface on the
+    URL after `drive.google.com/drive/folders/`) -
+    leave empty to use the entire drive
+- `PageSize` (optional, defaults to 100): maximum number of
+    files and folders retrieved per request
+
+
+### `Database` section:
+
+- `Dialect` and `Driver`: see
+    [SQLAlchemy documentation](https://docs.sqlalchemy.org/en/14/core/engines.html).
+    The corresponding server and the chosen driver **must** be installed.
+    Examples:
+
+    | Dialect      | Driver                                                                             |
+    |--------------|------------------------------------------------------------------------------------|
+    | `SQLite`     | `pysqlite`, `aiosqlite`, `pysqlcipher`                                             |
+    | `MySQL`      | `MySQLdb`, `PyMySQL`, `MySQLConnector`, `asyncmy`, `aiomysql`, `CyMySQL`, `PyODBC` |
+    | `PostgreSQL` | `psycopg2`, `pg8000`, `asyncpg`, `psycopg2cffi`                                    |
+    | `Oracle`     | `cx_Oracle`                                                                        |
+    | `MSSQL`      | `PyODBC`, `pymssql`                                                                |
+
+- `Username` and `Password`: database credentials.
+- `Host` and `Port`: database address.
+- `Database`: database name.
+- `Query`: dialect-specific values (empty by default). 
+
+### `Local` section:

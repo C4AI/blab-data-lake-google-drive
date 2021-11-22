@@ -7,6 +7,7 @@ name = "pypi"
 python-dateutil = ">=2.8.2"
 google-api-python-client = ">=2.30.0"
 google-auth = ">=2.3.3"
+SQLAlchemy = ">=1.4.27"
 
 [dev-packages]
 
