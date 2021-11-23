@@ -1,12 +1,16 @@
+#!/usr/bin/env python3
+
 from datetime import datetime
 from dataclasses import dataclass, field
 from dateutil import parser as timestamp_parser
-from typing import Optional, List
+from typing import Optional, List, Dict
 import configparser
 import logging
 
 from googleapiclient.discovery import build, Resource
 from google.oauth2 import service_account
+
+from .cachedb import MetadataCacheDatabase
 
 
 logging.basicConfig(level=logging.INFO)
@@ -31,10 +35,11 @@ class LakeFile:
 @dataclass
 class LakeDirectory(LakeFile):
     children: List[LakeFile] = field(default_factory=list)
+    is_root: bool = False
 
     def _fill_children(self,
                        service: Resource,
-                       gd_config: configparser.SectionProxy
+                       gd_config: Dict[str, str]
                        ) -> Optional['LakeDirectory']:
         q_items = ['not trashed']
         if self.id:
@@ -83,7 +88,7 @@ class LakeDirectory(LakeFile):
 
     @classmethod
     def get_tree(cls,
-                 service: Resource, gd_config: configparser.SectionProxy
+                 service: Resource, gd_config: Dict[str, str]
                  ) -> 'LakeDirectory':
         this_id = gd_config.get('SubTreeRootId', None) or \
                   gd_config.get('SharedDriveId', None)
@@ -104,7 +109,7 @@ class LakeDirectory(LakeFile):
                         ]
         else:
             metadata = ['', None, None, None, None, None, None]
-        root = LakeDirectory(*metadata)
+        root = LakeDirectory(*metadata, is_root=True) # type: ignore
         root._fill_children(service, gd_config)
         return root
 
@@ -119,14 +124,15 @@ class LakeRegularFile(LakeFile):
 def read_settings(fn: str = 'blab-dataimporter-googledrive-settings.cfg') \
                                                 -> configparser.ConfigParser:
     config = configparser.ConfigParser()
+    config.optionxform = str  # type: ignore  # do not convert to lower-case
     config.read(fn)
     return config
 
 
-def get_service(gd_config: configparser.SectionProxy) -> Resource:
+def get_service(gd_config: Dict[str, str]) -> Resource:
     scopes = ['https://www.googleapis.com/auth/drive']
     credentials = service_account.Credentials.from_service_account_file(
-        gd_config['KeyFileName'], scopes=scopes)
+        gd_config['ServiceAccountKeyFileName'], scopes=scopes)
     return build('drive', 'v3', credentials=credentials, cache_discovery=False)
 
 
@@ -146,8 +152,12 @@ def print_tree(f: LakeFile, pfx: Optional[List[bool]] = None) -> None:
 
 
 config = read_settings()
-gd_config = config['GoogleDrive']
-logging.info('Fetching files')
-service = get_service(gd_config)
-tree = LakeDirectory.get_tree(service, gd_config)
-print_tree(tree)
+
+db = MetadataCacheDatabase(dict(config['Database']))
+
+
+# gd_config = dict(config['GoogleDrive'])
+# logging.info('Fetching files')
+# service = get_service(gd_config)
+# tree = LakeDirectory.get_tree(service, gd_config)
+# print_tree(tree)

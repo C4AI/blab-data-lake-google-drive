@@ -1,4 +1,5 @@
 python-dateutil>=2.8.2
+packaging>=21.3
 google-api-python-client>=2.30.0
 google-auth>=2.3.3
-sqlalchemy>=1.4.27
+sqlalchemy[mypy]>=1.4.27
