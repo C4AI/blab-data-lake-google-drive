@@ -1,13 +1,16 @@
 import logging
 import sqlalchemy
-from sqlalchemy import Column, ForeignKey, Integer, String, TIMESTAMP, \
-    select, update
-from sqlalchemy.orm import declarative_base, Session
-from typing import Dict
+from sqlalchemy import Integer, String, Boolean, TIMESTAMP, BigInteger, \
+    Column, ForeignKey, select, update
+from sqlalchemy.orm import declarative_base, Session, relationship, backref
+from typing import Dict, List
 from urllib.parse import parse_qs
 from packaging.version import parse as parse_version
 
 from . import VERSION
+
+
+logger = logging.getLogger(__package__)
 
 
 Base = declarative_base()
@@ -24,7 +27,16 @@ class StoredLakeFile(Base):
     modified_time = Column(TIMESTAMP(timezone=True))
     modified_by = Column(String)
     web_url = Column(String)
+    is_root = Column(Boolean, default=False)
+    mime_type = Column(String)
+    size = Column(BigInteger)
+    md5_checksum = Column(String)
+
     parent_id = Column(String, ForeignKey(id))
+    parent: 'StoredLakeFile' = relationship(
+        'StoredLakeFile',
+        backref=backref('reports'), remote_side=[id]
+    )
 
 
 class StoredDatabaseMetadata(Base):
@@ -43,12 +55,11 @@ class MetadataCacheDatabase:
 
     def __init__(self, db_config: Dict[str, str]):
         self.db_config: Dict[str, str] = db_config
-        self.engine = self.__get_engine()
-        self.meta = sqlalchemy.MetaData()
-        Base.metadata.create_all(self.engine)
+        self._engine = self.__create_engine()
+        Base.metadata.create_all(self._engine)
         self.upgrade()
 
-    def __get_engine(self) -> sqlalchemy.engine.base.Engine:
+    def __create_engine(self) -> sqlalchemy.engine.base.Engine:
         cfg = self.db_config
         driver = cfg.get('Driver', '')
         url = sqlalchemy.engine.URL.create(
@@ -63,19 +74,19 @@ class MetadataCacheDatabase:
         return sqlalchemy.create_engine(url)
 
     def upgrade(self) -> None:
-        with Session(self.engine) as session:
+        with Session(self._engine) as session:
             stmt = select(StoredDatabaseMetadata).where(  # type: ignore
                 StoredDatabaseMetadata.key == 'version')
             result = session.execute(stmt)
             if (version_row := result.first()):
                 version = version_row[0].value
-                logging.info(f'Database version: {version}')
+                logger.info(f'Database version: {version}')
             else:
                 version = VERSION
                 row = StoredDatabaseMetadata(key='version', value=version)
                 session.add(row)
                 session.commit()
-                logging.info(f'Database version (new): {version}')
+                logger.info(f'Database version (new): {version}')
 
         def upgrade_1_0_0() -> None:
             pass
@@ -88,8 +99,8 @@ class MetadataCacheDatabase:
         for version, fn in upgraders.items():
             v = parse_version(version)
             if current_version < v:
-                logging.info(f'Upgrading database to version {version}')
-                with Session(self.engine) as session:
+                logger.info(f'Upgrading database to version {version}')
+                with Session(self._engine) as session:
                     fn()
                     session.execute(
                         update(StoredDatabaseMetadata).where(
@@ -97,3 +108,9 @@ class MetadataCacheDatabase:
                         values(value=version))
                     session.commit()
                     current_version = v
+
+    def get_tree(self) -> List[StoredLakeFile]:
+        return [] # TODO
+
+    def new_session(self) -> Session:
+        return Session(self._engine)

@@ -4,16 +4,19 @@ from datetime import datetime
 from dataclasses import dataclass, field
 from dateutil import parser as timestamp_parser
 from typing import Optional, List, Dict
-import configparser
+
 import logging
 
 from googleapiclient.discovery import build, Resource
-from google.oauth2 import service_account
+from googleapiclient.http import MediaIoBaseDownload
 
-from .cachedb import MetadataCacheDatabase
+from google.oauth2 import service_account
 
 
 logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__package__)
+logger.setLevel(logging.DEBUG)
+
 
 DEFAULT_PAGE_SIZE = 100
 FILE_FIELDS = ', '.join(['id', 'name', 'parents', 'kind', 'mimeType',
@@ -31,16 +34,34 @@ class LakeFile:
     web_url: str
     parent: Optional['LakeDirectory']
 
+    def print_tree(self, pfx: Optional[List[bool]] = None) -> None:
+        if pfx is None:
+            pfx = []
+        for i, p in enumerate(pfx[:-1]):
+            print(' ┃ ' if p else '   ', end=' ')
+        if pfx:
+            print(' ┠─' if pfx[-1] else ' ┖─', end=' ')
+        print(self.name)
+
+    def download(self, service: Resource, file_name: str) -> bool:
+        logger.info(
+            f'Downloading file “{self.name}” (id: {self.id}) to “{file_name}”')
+        with open(file_name, 'wb') as fd:
+            request = service.files().get_media(fileId=self.id)
+            downloader = MediaIoBaseDownload(fd, request)
+            completed = False
+            while not completed:
+                status, completed = downloader.next_chunk()
+        return True
+
 
 @dataclass
 class LakeDirectory(LakeFile):
     children: List[LakeFile] = field(default_factory=list)
     is_root: bool = False
 
-    def _fill_children(self,
-                       service: Resource,
-                       gd_config: Dict[str, str]
-                       ) -> Optional['LakeDirectory']:
+    def _fill_children(self, service: Resource,
+                       gd_config: Dict[str, str]) -> None:
         q_items = ['not trashed']
         if self.id:
             q_items.append(f"'{self.id}' in parents")
@@ -51,29 +72,33 @@ class LakeDirectory(LakeFile):
             includeItemsFromAllDrives=bool(shared_drive_id),
             driveId=shared_drive_id or None,
             corpora='drive' if shared_drive_id else 'user',
-            pageSize=int(gd_config.get('PageSize', None)
-                         or DEFAULT_PAGE_SIZE),
+            pageSize=int(gd_config.get('PageSize', None) or DEFAULT_PAGE_SIZE),
             fields=f'nextPageToken, files({FILE_FIELDS})',
             orderBy='folder, name',
             q=q
         )
-        page_token = ''
+        page_token = None
         children = []
-        while page_token is not None:
-            results = service.files().list(
-                pageToken=page_token or None,
+        page = 0
+        while page_token is not None or page == 0:
+            request = service.files().list(
+                pageToken=page_token,
                 **params
-            ).execute()
+            )
+            logger.debug(f'Requesting directory (id: {self.id}) (page {page})')
+            results = request.execute()
             children += results['files']
             page_token = results.get('nextPageToken', None)
+            page += 1
         for f in children:
             metadata = [f['name'], f['id'],
                         timestamp_parser.parse(f['createdTime']),
                         timestamp_parser.parse(f['modifiedTime']),
                         f['lastModifyingUser']['displayName'],
                         f['webViewLink'],
-                        f['parents'][0] if len(f['parents']) >= 1 else None,
+                        self,
                         ]
+            node: LakeFile
             if f['mimeType'] == 'application/vnd.google-apps.folder':
                 node = LakeDirectory(*metadata)
                 node._fill_children(service, gd_config)
@@ -91,73 +116,61 @@ class LakeDirectory(LakeFile):
                  service: Resource, gd_config: Dict[str, str]
                  ) -> 'LakeDirectory':
         this_id = gd_config.get('SubTreeRootId', None) or \
-                  gd_config.get('SharedDriveId', None)
+            gd_config.get('SharedDriveId', None)
         shared_drive_id = gd_config.get('SharedDriveId', None)
         if this_id:
-            f = service.files().get(
+            request = service.files().get(
                 fileId=this_id,
                 supportsAllDrives=bool(shared_drive_id),
                 fields=FILE_FIELDS,
-            ).execute()
+            )
+            logger.debug(f'Requesting root directory (id: {this_id})')
+            f = request.execute()
             metadata = [f['name'], f['id'],
                         timestamp_parser.parse(f['createdTime']),
                         timestamp_parser.parse(f['modifiedTime']),
                         f['lastModifyingUser']['displayName'],
                         f['webViewLink'],
-                        f['parents'][0] if len(
-                            f.get('parents', [])) >= 1 else None
+                        None,
                         ]
         else:
             metadata = ['', None, None, None, None, None, None]
-        root = LakeDirectory(*metadata, is_root=True) # type: ignore
+        root = LakeDirectory(*metadata, is_root=True)  # type: ignore
         root._fill_children(service, gd_config)
         return root
+
+    def print_tree(self, pfx: Optional[List[bool]] = None) -> None:
+        super().print_tree(pfx)
+        if pfx is None:
+            pfx = []
+        for child in self.children[:-1]:
+            child.print_tree(pfx + [True])
+        if self.children:
+            self.children[-1].print_tree(pfx + [False])
 
 
 @dataclass
 class LakeRegularFile(LakeFile):
     mime_type: str
     size: int
-    md5Checksum: int
+    md5_checksum: int
 
 
-def read_settings(fn: str = 'blab-dataimporter-googledrive-settings.cfg') \
-                                                -> configparser.ConfigParser:
-    config = configparser.ConfigParser()
-    config.optionxform = str  # type: ignore  # do not convert to lower-case
-    config.read(fn)
-    return config
+class Lake:
 
+    def __init__(self, gd_config: Dict[str, str]):
+        self.gd_config = gd_config
+        self.service = self.__get_service()
 
-def get_service(gd_config: Dict[str, str]) -> Resource:
-    scopes = ['https://www.googleapis.com/auth/drive']
-    credentials = service_account.Credentials.from_service_account_file(
-        gd_config['ServiceAccountKeyFileName'], scopes=scopes)
-    return build('drive', 'v3', credentials=credentials, cache_discovery=False)
+    def __get_service(self) -> Resource:
+        scopes = ['https://www.googleapis.com/auth/drive']
+        cred = service_account.Credentials.from_service_account_file(
+            self.gd_config['ServiceAccountKeyFileName'], scopes=scopes)
+        s = build('drive', 'v3', credentials=cred, cache_discovery=False)
+        return s
 
+    def get_tree(self) -> LakeDirectory:
+        return LakeDirectory.get_tree(self.service, self.gd_config)
 
-def print_tree(f: LakeFile, pfx: Optional[List[bool]] = None) -> None:
-    if pfx is None:
-        pfx = []
-    for i, p in enumerate(pfx[:-1]):
-        print(' ┃ ' if p else '   ', end=' ')
-    if pfx:
-        print(' ┠─' if pfx[-1] else ' ┖─', end=' ')
-    print(f.name)
-    if isinstance(f, LakeDirectory):
-        for child in f.children[:-1]:
-            print_tree(child, pfx + [True])
-        if f.children:
-            print_tree(f.children[-1], pfx + [False])
-
-
-config = read_settings()
-
-db = MetadataCacheDatabase(dict(config['Database']))
-
-
-# gd_config = dict(config['GoogleDrive'])
-# logging.info('Fetching files')
-# service = get_service(gd_config)
-# tree = LakeDirectory.get_tree(service, gd_config)
-# print_tree(tree)
+    def download_file(self, file: LakeRegularFile, output_file: str) -> None:
+        file.download(self.service, output_file)
