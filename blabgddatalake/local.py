@@ -16,7 +16,7 @@ logger = logging.getLogger(__package__)
 Base = declarative_base()
 
 
-class StoredLakeFile(Base):
+class StoredRemoteFile(Base):
 
     __tablename__ = 'gdfile'
 
@@ -33,8 +33,8 @@ class StoredLakeFile(Base):
     md5_checksum = Column(String)
 
     parent_id = Column(String, ForeignKey(id))
-    parent: 'StoredLakeFile' = relationship(
-        'StoredLakeFile',
+    parent: 'StoredRemoteFile' = relationship(
+        'StoredRemoteFile',
         backref=backref('reports'), remote_side=[id]
     )
 
@@ -109,8 +109,8 @@ class MetadataCacheDatabase:
                     session.commit()
                     current_version = v
 
-    def get_tree(self) -> List[StoredLakeFile]:
-        return [] # TODO
+    def get_tree(self) -> List[StoredRemoteFile]:
+        return []  # TODO
 
     def new_session(self) -> Session:
         return Session(self._engine)

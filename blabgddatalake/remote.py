@@ -25,14 +25,14 @@ FILE_FIELDS = ', '.join(['id', 'name', 'parents', 'kind', 'mimeType',
 
 
 @dataclass
-class LakeFile:
+class RemoteFile:
     name: str
     id: str
     created_time: datetime
     modified_time: datetime
     modified_by: str
     web_url: str
-    parent: Optional['LakeDirectory']
+    parent: Optional['RemoteDirectory']
 
     def print_tree(self, pfx: Optional[List[bool]] = None) -> None:
         if pfx is None:
@@ -56,8 +56,8 @@ class LakeFile:
 
 
 @dataclass
-class LakeDirectory(LakeFile):
-    children: List[LakeFile] = field(default_factory=list)
+class RemoteDirectory(RemoteFile):
+    children: List[RemoteFile] = field(default_factory=list)
     is_root: bool = False
 
     def _fill_children(self, service: Resource,
@@ -98,9 +98,9 @@ class LakeDirectory(LakeFile):
                         f['webViewLink'],
                         self,
                         ]
-            node: LakeFile
+            node: RemoteFile
             if f['mimeType'] == 'application/vnd.google-apps.folder':
-                node = LakeDirectory(*metadata)
+                node = RemoteDirectory(*metadata)
                 node._fill_children(service, gd_config)
             else:
                 file_metadata = [
@@ -108,13 +108,13 @@ class LakeDirectory(LakeFile):
                     f.get('size', None),
                     f.get('md5Checksum', None),
                 ]
-                node = LakeRegularFile(*metadata, *file_metadata)
+                node = RemoteRegularFile(*metadata, *file_metadata)
             self.children.append(node)
 
     @classmethod
     def get_tree(cls,
                  service: Resource, gd_config: Dict[str, str]
-                 ) -> 'LakeDirectory':
+                 ) -> 'RemoteDirectory':
         this_id = gd_config.get('SubTreeRootId', None) or \
             gd_config.get('SharedDriveId', None)
         shared_drive_id = gd_config.get('SharedDriveId', None)
@@ -135,7 +135,7 @@ class LakeDirectory(LakeFile):
                         ]
         else:
             metadata = ['', None, None, None, None, None, None]
-        root = LakeDirectory(*metadata, is_root=True)  # type: ignore
+        root = RemoteDirectory(*metadata, is_root=True)  # type: ignore
         root._fill_children(service, gd_config)
         return root
 
@@ -150,10 +150,10 @@ class LakeDirectory(LakeFile):
 
 
 @dataclass
-class LakeRegularFile(LakeFile):
+class RemoteRegularFile(RemoteFile):
     mime_type: str
     size: int
-    md5_checksum: int
+    md5_checksum: str
 
 
 class Lake:
@@ -169,8 +169,8 @@ class Lake:
         s = build('drive', 'v3', credentials=cred, cache_discovery=False)
         return s
 
-    def get_tree(self) -> LakeDirectory:
-        return LakeDirectory.get_tree(self.service, self.gd_config)
+    def get_tree(self) -> RemoteDirectory:
+        return RemoteDirectory.get_tree(self.service, self.gd_config)
 
-    def download_file(self, file: LakeRegularFile, output_file: str) -> None:
+    def download_file(self, file: RemoteRegularFile, output_file: str) -> None:
         file.download(self.service, output_file)
