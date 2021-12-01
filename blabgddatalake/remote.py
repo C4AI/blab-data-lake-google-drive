@@ -21,13 +21,15 @@ logger.setLevel(logging.DEBUG)
 DEFAULT_PAGE_SIZE = 100
 FILE_FIELDS = ', '.join(['id', 'name', 'parents', 'kind', 'mimeType',
                          'webViewLink', 'md5Checksum', 'size', 'createdTime',
-                         'modifiedTime', 'lastModifyingUser'])
+                         'modifiedTime', 'lastModifyingUser', 'headRevisionId',
+                         ])
 
 
 @dataclass
 class RemoteFile:
     name: str
     id: str
+    mime_type: str
     created_time: datetime
     modified_time: datetime
     modified_by: str
@@ -47,7 +49,9 @@ class RemoteFile:
         logger.info(
             f'Downloading file “{self.name}” (id: {self.id}) to “{file_name}”')
         with open(file_name, 'wb') as fd:
-            request = service.files().get_media(fileId=self.id)
+            request = service.files().get_media(
+                fileId=self.id,
+            )
             downloader = MediaIoBaseDownload(fd, request)
             completed = False
             while not completed:
@@ -91,7 +95,7 @@ class RemoteDirectory(RemoteFile):
             page_token = results.get('nextPageToken', None)
             page += 1
         for f in children:
-            metadata = [f['name'], f['id'],
+            metadata = [f['name'], f['id'], f['mimeType'],
                         timestamp_parser.parse(f['createdTime']),
                         timestamp_parser.parse(f['modifiedTime']),
                         f['lastModifyingUser']['displayName'],
@@ -104,9 +108,9 @@ class RemoteDirectory(RemoteFile):
                 node._fill_children(service, gd_config)
             else:
                 file_metadata = [
-                    f.get('mimeType', None),
-                    f.get('size', None),
+                    int(s) if (s := f.get('size', None)) is not None else None,
                     f.get('md5Checksum', None),
+                    f.get('headRevisionId', None),
                 ]
                 node = RemoteRegularFile(*metadata, *file_metadata)
             self.children.append(node)
@@ -126,7 +130,7 @@ class RemoteDirectory(RemoteFile):
             )
             logger.debug(f'Requesting root directory (id: {this_id})')
             f = request.execute()
-            metadata = [f['name'], f['id'],
+            metadata = [f['name'], f['id'], f['mimeType'],
                         timestamp_parser.parse(f['createdTime']),
                         timestamp_parser.parse(f['modifiedTime']),
                         f['lastModifyingUser']['displayName'],
@@ -138,6 +142,13 @@ class RemoteDirectory(RemoteFile):
         root = RemoteDirectory(*metadata, is_root=True)  # type: ignore
         root._fill_children(service, gd_config)
         return root
+
+    def flatten(self) -> Dict[str, RemoteFile]:
+        d: Dict[str, RemoteFile] = {self.id: self}
+        for c in self.children:
+            d.update(c.flatten() if isinstance(c, RemoteDirectory)
+                     else {c.id: c})
+        return d
 
     def print_tree(self, pfx: Optional[List[bool]] = None) -> None:
         super().print_tree(pfx)
@@ -151,9 +162,13 @@ class RemoteDirectory(RemoteFile):
 
 @dataclass
 class RemoteRegularFile(RemoteFile):
-    mime_type: str
     size: int
     md5_checksum: str
+    head_revision_id: str
+
+    @property
+    def is_google_workspace_file(self) -> bool:
+        return self.md5_checksum.startswith('application/vnd.google-apps')
 
 
 class Lake:
