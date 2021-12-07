@@ -15,7 +15,6 @@ from google.oauth2 import service_account
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__package__)
-logger.setLevel(logging.DEBUG)
 
 
 DEFAULT_PAGE_SIZE = 100

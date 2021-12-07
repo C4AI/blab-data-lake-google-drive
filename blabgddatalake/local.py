@@ -44,8 +44,8 @@ class LocalFile(Base):
     gdfile_id = Column(Integer, primary_key=True)
     id: str = Column(String, unique=True, nullable=False)
     name = Column(String)
-    created_time = Column(TimestampWithTZ(timezone=True))
-    modified_time = Column(TimestampWithTZ(timezone=True))
+    created_time = Column(TimestampWithTZ())
+    modified_time = Column(TimestampWithTZ())
     modified_by = Column(String)
     web_url = Column(String)
     is_root = Column(Boolean, default=False)
@@ -94,6 +94,21 @@ class LocalFile(Base):
                      else {c.id: c})
         return d
 
+    @property
+    def is_google_workspace_file(self) -> bool:
+        return not self.is_directory and \
+            (self.md5_checksum or '').startswith('application/vnd.google-apps')
+
+
+class FileToDelete(Base):
+
+    __tablename__ = 'filetodelete'
+
+    filetodelete_id = Column(Integer, primary_key=True)
+    name: str = Column(String, nullable=False)
+    removedfromindexat: datetime = Column(
+        TimestampWithTZ(), default=datetime.now())
+
 
 class DatabaseMetadata(Base):
 
@@ -107,7 +122,7 @@ class DatabaseMetadata(Base):
         return f'[{self.key} = {self.value}]'
 
 
-class LocalStorageDatabse:
+class LocalStorageDatabase:
 
     def __init__(self, db_config: Dict[str, str]):
         self.db_config: Dict[str, str] = db_config
@@ -173,3 +188,12 @@ class LocalStorageDatabse:
 
     def new_session(self) -> Session:
         return Session(self._engine)
+
+    def get_files_to_delete(self, session: Session,
+                            until: Optional[datetime] = None) \
+            -> List[FileToDelete]:
+        stmt = select(FileToDelete)  # type: ignore
+        if until:
+            stmt = stmt.where(FileToDelete.removedfromindexat <= until)
+        result = session.execute(stmt)
+        return result.scalars().all()

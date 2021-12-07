@@ -1,10 +1,12 @@
 import configparser
 import logging
+import os
+from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, Union
 
 from .remote import Lake, RemoteDirectory, RemoteRegularFile
-from .local import LocalStorageDatabse, LocalFile
+from .local import LocalStorageDatabase, LocalFile, FileToDelete
 
 
 logger = logging.getLogger(__package__)
@@ -18,8 +20,10 @@ def read_settings(fn: str = 'blab-dataimporter-googledrive-settings.cfg') \
     return config
 
 
-def local_file_name(f: RemoteRegularFile) -> str:
-    return f.id + '_' + f.head_revision_id + '_' + f.md5_checksum
+def local_file_name(f: Union[RemoteRegularFile, LocalFile]) -> str:
+    return f.id + \
+        '_' + (f.head_revision_id or '') + \
+        '_' + (f.md5_checksum or '')
 
 
 def download(f: RemoteRegularFile) -> None:
@@ -31,15 +35,37 @@ def download(f: RemoteRegularFile) -> None:
 if __name__ == '__main__':
 
     config = read_settings()
-    db = LocalStorageDatabse(dict(config['Database']))
+    db = LocalStorageDatabase(dict(config['Database']))
 
+    lake = Lake(dict(config['GoogleDrive']))
+
+    # clean up
+    with db.new_session() as session:
+        until = None
+        if d := config['Local'].get('DeletionDelay', None):
+            until = datetime.now() - timedelta(seconds=int(d))
+        for ftd in db.get_files_to_delete(session):
+            name = Path(config['Local']['RootPath']).resolve() / ftd.name
+            try:
+                os.remove(name)
+            except FileNotFoundError:
+                logger.warn(
+                    f'Not deleting “{ftd.name}” because it no longer exists.')
+            except Exception:
+                logger.warn(
+                    f'Could not delete “{ftd.name}”.')
+            else:
+                logger.info(f'File “{ftd.name}” has been deleted.')
+                session.delete(ftd)
+        session.commit()
+
+    # sync
     with db.new_session() as session:
 
         local_tree = db.get_tree(session)
         local_file_by_id: Dict[str, LocalFile] = local_tree.flatten() \
             if local_tree else {}
 
-        lake = Lake(dict(config['GoogleDrive']))
         remote_tree = lake.get_tree()
         remote_file_by_id = remote_tree.flatten()
 
@@ -95,7 +121,8 @@ if __name__ == '__main__':
                     )
                 if local_file_metadata == remote_file_metadata:
                     # file is unchanged
-                    logger.info(f'File (id: {id}, name: “{f.name}”) unchanged')
+                    logger.debug(
+                        f'File (id: {id}, name: “{f.name}”) unchanged')
                 else:
                     # file has been changed
                     logger.info(
@@ -106,6 +133,10 @@ if __name__ == '__main__':
                         not f.is_google_workspace_file and \
                         (remote_file_metadata[k] for k in unique_cols) != \
                             (local_file_metadata[k] for k in unique_cols):
+                        fn = local_file_name(f)
+                        to_delete = FileToDelete(name=fn)
+                        session.add(to_delete)
+                        logger.info(f'Local file “{fn}” marked for deletion')
                         download(f)
                     for k, v in remote_file_metadata.items():
                         if (old := local_file_metadata.get(k, None)) != v:
@@ -116,5 +147,12 @@ if __name__ == '__main__':
                                 + f'changed field “{k}” from “{old}” to “{v}”')
                             setattr(lf, k, v)
                 # TODO: delete files that were deleted on the server
-                # TODO: delete old versions of files after getting new versions
+        for fid in local_file_by_id.keys() - remote_file_by_id.keys():
+            lf = local_file_by_id[fid]
+            if not (lf.is_directory or lf.is_google_workspace_file):
+                fn = local_file_name(lf)
+                to_delete = FileToDelete(name=fn)
+                session.add(to_delete)
+                logger.info(f'Local file “{fn}” marked for deletion')
+            session.delete(lf)
         session.commit()
