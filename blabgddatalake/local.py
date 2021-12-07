@@ -1,4 +1,4 @@
-import logging
+import structlog
 import sqlalchemy
 from datetime import datetime, timezone
 from dateutil import tz
@@ -16,7 +16,7 @@ from packaging.version import parse as parse_version
 from . import VERSION
 
 
-logger = logging.getLogger(__name__)
+logger = structlog.getLogger(__name__)
 
 
 Base = declarative_base()
@@ -149,15 +149,16 @@ class LocalStorageDatabase:
             stmt = select(DatabaseMetadata).where(  # type: ignore
                 DatabaseMetadata.key == 'version')
             result = session.execute(stmt)
+            log = logger.bind(new=False)
             if (version_row := result.first()):
                 version = version_row[0].value
-                logger.info(f'Database version: {version}')
             else:
                 version = VERSION
+                log = logger.bind(new=True)
                 row = DatabaseMetadata(key='version', value=version)
                 session.add(row)
                 session.commit()
-                logger.info(f'Database version (new): {version}')
+            log.info('checking database version', version=version)
 
         def upgrade_1_0_0() -> None:
             pass
@@ -170,7 +171,8 @@ class LocalStorageDatabase:
         for version, fn in upgraders.items():
             v = parse_version(version)
             if current_version < v:
-                logger.info(f'Upgrading database to version {version}')
+                logger.info('upgrading database version',
+                            old=current_version, new=v)
                 with Session(self._engine) as session:
                     fn()
                     session.execute(
@@ -181,6 +183,7 @@ class LocalStorageDatabase:
                     current_version = v
 
     def get_tree(self, session: Session) -> Optional[LocalFile]:
+        logger.info('requesting local tree')
         stmt = select(LocalFile).where(LocalFile.is_root)  # type: ignore
         result = session.execute(stmt)
         root = result.scalars().first()
@@ -192,6 +195,7 @@ class LocalStorageDatabase:
     def get_files_to_delete(self, session: Session,
                             until: Optional[datetime] = None) \
             -> List[FileToDelete]:
+        logger.info('requesting list of files to delete', until=until)
         stmt = select(FileToDelete)  # type: ignore
         if until:
             stmt = stmt.where(FileToDelete.removedfromindexat <= until)

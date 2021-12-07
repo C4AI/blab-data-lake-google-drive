@@ -4,6 +4,7 @@ from .sync import sync, cleanup
 import argparse
 import configparser
 import logging
+import structlog
 import sys
 
 
@@ -49,11 +50,11 @@ parser_cleanup.add_argument(
 options = parser.parse_args(sys.argv[1:])
 
 
-logging.basicConfig(level=logging.INFO)
-logging.getLogger(__package__).setLevel(
-    logging.DEBUG if options.debug else
-    logging.WARNING if options.quiet else logging.INFO)
-
+logging.basicConfig(level=logging.INFO, format="%(message)s",
+                    stream=sys.stdout,)
+level = logging.DEBUG if options.debug else \
+    logging.WARNING if options.quiet else logging.INFO
+structlog.configure(wrapper_class=structlog.make_filtering_bound_logger(level))
 
 config = dict(read_settings())
 

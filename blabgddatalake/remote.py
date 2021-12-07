@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from dateutil import parser as timestamp_parser
 from typing import Optional, List, Dict
 
-import logging
+import structlog
 
 from googleapiclient.discovery import build, Resource
 from googleapiclient.http import MediaIoBaseDownload
@@ -13,7 +13,7 @@ from googleapiclient.http import MediaIoBaseDownload
 from google.oauth2 import service_account
 
 
-logger = logging.getLogger(__name__)
+logger = structlog.getLogger(__name__)
 
 
 DEFAULT_PAGE_SIZE = 100
@@ -44,8 +44,8 @@ class RemoteFile:
         print(self.name)
 
     def download(self, service: Resource, file_name: str) -> bool:
-        logger.info(
-            f'Downloading file “{self.name}” (id: {self.id}) to “{file_name}”')
+        log = logger.bind(id=self.id, name=self.name, local_name=file_name)
+        log.info('downloading file')
         with open(file_name, 'wb') as fd:
             request = service.files().get_media(
                 fileId=self.id,
@@ -82,12 +82,13 @@ class RemoteDirectory(RemoteFile):
         page_token = None
         children = []
         page = 0
+        log = logger.bind(id=self.id)
         while page_token is not None or page == 0:
             request = service.files().list(
                 pageToken=page_token,
                 **params
             )
-            logger.debug(f'Requesting directory (id: {self.id}) (page {page})')
+            log.debug('requesting directory', page=page)
             results = request.execute()
             children += results['files']
             page_token = results.get('nextPageToken', None)
@@ -126,7 +127,7 @@ class RemoteDirectory(RemoteFile):
                 supportsAllDrives=bool(shared_drive_id),
                 fields=FILE_FIELDS,
             )
-            logger.debug(f'Requesting root directory (id: {this_id})')
+            logger.debug('requesting root directory', id=this_id)
             f = request.execute()
             metadata = [f['name'], f['id'], f['mimeType'],
                         timestamp_parser.parse(f['createdTime']),

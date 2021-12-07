@@ -1,4 +1,4 @@
-import logging
+import structlog
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -8,7 +8,7 @@ from .remote import Lake, RemoteDirectory, RemoteRegularFile
 from .local import LocalStorageDatabase, LocalFile, FileToDelete
 
 
-logger = logging.getLogger(__name__)
+logger = structlog.getLogger(__name__)
 
 
 def local_file_name(f: Union[RemoteRegularFile, LocalFile]) -> str:
@@ -29,21 +29,21 @@ def cleanup(config: Dict, delay: Optional[float] = None) -> int:
         until -= timedelta(seconds=delay)
     elif (d := config['Local'].get('DeletionDelay', None)) is not None:
         until -= timedelta(seconds=float(d))
-    logger.info(f'Deleting files marked for deletion until {until}')
+    logger.info('deleting files marked for deletion', until=until)
     db, lake = _db_and_lake(config)
     with db.new_session() as session:
         for ftd in db.get_files_to_delete(session, until):
             name = Path(config['Local']['RootPath']).resolve() / ftd.name
+            log = logger.bind(
+                name=ftd.name, marked_for_deletion_at=ftd.removedfromindexat)
             try:
                 os.remove(name)
             except FileNotFoundError:
-                logger.warn(
-                    f'Not deleting “{ftd.name}” because it no longer exists.')
+                log.warn('not deleting file because it no longer exists')
             except Exception:
-                logger.warn(
-                    f'Could not delete “{ftd.name}”.')
+                log.warn('could not delete file')
             else:
-                logger.info(f'File “{ftd.name}” has been deleted.')
+                log.info('file deleted')
                 session.delete(ftd)
         session.commit()
     return 0
@@ -117,30 +117,28 @@ def sync(config: Dict) -> int:
                     local_file_metadata.update(
                         is_root=lf.is_root,
                     )
+                log = logger.bind(name=f.name, id=id)
                 if local_file_metadata == remote_file_metadata:
                     # file is unchanged
-                    logger.debug(
-                        f'File (id: {id}, name: “{f.name}”) unchanged')
+                    log.debug('no changes in file')
                 else:
                     # file has been changed
-                    logger.info(
-                        f'File (id: {id}, name: “{lf.name}”) metadata changed')
+                    log.info('file metadata changed')
                     unique_cols = ('md5_checksum', 'head_revision_id')
                     mt = f.mime_type
                     if isinstance(f, RemoteRegularFile) and \
-                        not f.is_google_workspace_file and \
-                        (remote_file_metadata[k] for k in unique_cols) != \
+                            not f.is_google_workspace_file and \
+                            (remote_file_metadata[k] for k in unique_cols) != \
                             (local_file_metadata[k] for k in unique_cols):
+                        download(f)
                         fn = local_file_name(f)
                         to_delete = FileToDelete(name=fn)
                         session.add(to_delete)
-                        logger.info(f'Local file “{fn}” marked for deletion')
-                        download(f)
+                        log.info('old file marked for deletion')
                     for k, v in remote_file_metadata.items():
                         if (old := local_file_metadata.get(k, None)) != v:
-                            logger.info(
-                                f'File (id: {id}, name: “{f.name}”) '
-                                + f'changed field “{k}” from “{old}” to “{v}”')
+                            log.info('file metadata changed',
+                                     field=k, old_value=old, new_value=v)
                             setattr(lf, k, v)
         for fid in local_file_by_id.keys() - remote_file_by_id.keys():
             lf = local_file_by_id[fid]
@@ -148,7 +146,8 @@ def sync(config: Dict) -> int:
                 fn = local_file_name(lf)
                 to_delete = FileToDelete(name=fn)
                 session.add(to_delete)
-                logger.info(f'Local file “{fn}” marked for deletion')
+                log = logger.bind(name=lf.name, id=fid)
+                log.info('file (deleted on server) marked for deletion')
             session.delete(lf)
         session.commit()
 
