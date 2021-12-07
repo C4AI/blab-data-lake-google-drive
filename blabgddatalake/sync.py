@@ -1,23 +1,14 @@
-import configparser
 import logging
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, Any, Union
+from typing import Dict, Any, Union, Tuple, Optional
 
 from .remote import Lake, RemoteDirectory, RemoteRegularFile
 from .local import LocalStorageDatabase, LocalFile, FileToDelete
 
 
-logger = logging.getLogger(__package__)
-
-
-def read_settings(fn: str = 'blab-dataimporter-googledrive-settings.cfg') \
-        -> configparser.ConfigParser:
-    config = configparser.ConfigParser()
-    config.optionxform = str  # type: ignore  # do not convert to lower-case
-    config.read(fn)
-    return config
+logger = logging.getLogger(__name__)
 
 
 def local_file_name(f: Union[RemoteRegularFile, LocalFile]) -> str:
@@ -26,25 +17,22 @@ def local_file_name(f: Union[RemoteRegularFile, LocalFile]) -> str:
         '_' + (f.md5_checksum or '')
 
 
-def download(f: RemoteRegularFile) -> None:
-    directory = Path(config['Local']['RootPath'])
-    fn = directory.resolve() / local_file_name(f)
-    lake.download_file(f, str(fn))
+def _db_and_lake(config: Dict) -> Tuple[LocalStorageDatabase, Lake]:
+    db = LocalStorageDatabase(config['Database'])
+    lake = Lake(config['GoogleDrive'])
+    return db, lake
 
 
-if __name__ == '__main__':
-
-    config = read_settings()
-    db = LocalStorageDatabase(dict(config['Database']))
-
-    lake = Lake(dict(config['GoogleDrive']))
-
-    # clean up
+def cleanup(config: Dict, delay: Optional[float] = None) -> int:
+    until = datetime.now()
+    if delay is not None:
+        until -= timedelta(seconds=delay)
+    elif (d := config['Local'].get('DeletionDelay', None)) is not None:
+        until -= timedelta(seconds=float(d))
+    logger.info(f'Deleting files marked for deletion until {until}')
+    db, lake = _db_and_lake(config)
     with db.new_session() as session:
-        until = None
-        if d := config['Local'].get('DeletionDelay', None):
-            until = datetime.now() - timedelta(seconds=int(d))
-        for ftd in db.get_files_to_delete(session):
+        for ftd in db.get_files_to_delete(session, until):
             name = Path(config['Local']['RootPath']).resolve() / ftd.name
             try:
                 os.remove(name)
@@ -58,8 +46,18 @@ if __name__ == '__main__':
                 logger.info(f'File “{ftd.name}” has been deleted.')
                 session.delete(ftd)
         session.commit()
+    return 0
 
-    # sync
+
+def sync(config: Dict) -> int:
+
+    db, lake = _db_and_lake(config)
+
+    def download(f: RemoteRegularFile) -> None:
+        directory = Path(config['Local']['RootPath'])
+        fn = directory.resolve() / local_file_name(f)
+        lake.download_file(f, str(fn))
+
     with db.new_session() as session:
 
         local_tree = db.get_tree(session)
@@ -140,13 +138,10 @@ if __name__ == '__main__':
                         download(f)
                     for k, v in remote_file_metadata.items():
                         if (old := local_file_metadata.get(k, None)) != v:
-                            if k in unique_cols:
-                                contents_changed = True
                             logger.info(
                                 f'File (id: {id}, name: “{f.name}”) '
                                 + f'changed field “{k}” from “{old}” to “{v}”')
                             setattr(lf, k, v)
-                # TODO: delete files that were deleted on the server
         for fid in local_file_by_id.keys() - remote_file_by_id.keys():
             lf = local_file_by_id[fid]
             if not (lf.is_directory or lf.is_google_workspace_file):
@@ -156,3 +151,5 @@ if __name__ == '__main__':
                 logger.info(f'Local file “{fn}” marked for deletion')
             session.delete(lf)
         session.commit()
+
+    return 0

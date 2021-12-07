@@ -3,3 +3,4 @@ packaging>=21.3
 google-api-python-client>=2.30.0
 google-auth>=2.3.3
 sqlalchemy[mypy]>=1.4.27
+structlog>=21.4

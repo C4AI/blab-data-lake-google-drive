@@ -13,8 +13,7 @@ from googleapiclient.http import MediaIoBaseDownload
 from google.oauth2 import service_account
 
 
-logging.basicConfig(level=logging.INFO)
-logger = logging.getLogger(__package__)
+logger = logging.getLogger(__name__)
 
 
 DEFAULT_PAGE_SIZE = 100

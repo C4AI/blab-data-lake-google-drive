@@ -9,6 +9,7 @@ google-api-python-client = ">=2.30.0"
 google-auth = ">=2.3.3"
 SQLAlchemy = {version = ">=1.4.27", extras = ["mypy"]}
 packaging = ">=21.3"
+structlog = ">=21.4"
 
 [dev-packages]
 

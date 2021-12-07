@@ -16,7 +16,7 @@ from packaging.version import parse as parse_version
 from . import VERSION
 
 
-logger = logging.getLogger(__package__)
+logger = logging.getLogger(__name__)
 
 
 Base = declarative_base()
