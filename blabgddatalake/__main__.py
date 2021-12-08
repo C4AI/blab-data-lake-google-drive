@@ -8,7 +8,7 @@ import structlog
 import sys
 
 
-def read_settings(fn: str = 'blab-dataimporter-googledrive-settings.cfg') \
+def read_settings(fn: str = 'blab-data-lake-settings.cfg') \
         -> configparser.ConfigParser:
     config = configparser.ConfigParser()
     config.optionxform = str  # type: ignore  # do not convert to lower-case

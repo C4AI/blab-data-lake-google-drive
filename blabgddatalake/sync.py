@@ -2,19 +2,13 @@ import structlog
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, Any, Union, Tuple, Optional
+from typing import Dict, Any, Tuple, Optional
 
 from .remote import Lake, RemoteDirectory, RemoteRegularFile
 from .local import LocalStorageDatabase, LocalFile, FileToDelete
 
 
 logger = structlog.getLogger(__name__)
-
-
-def local_file_name(f: Union[RemoteRegularFile, LocalFile]) -> str:
-    return f.id + \
-        '_' + (f.head_revision_id or '') + \
-        '_' + (f.md5_checksum or '')
 
 
 def _db_and_lake(config: Dict) -> Tuple[LocalStorageDatabase, Lake]:
@@ -29,7 +23,7 @@ def cleanup(config: Dict, delay: Optional[float] = None) -> int:
         until -= timedelta(seconds=delay)
     elif (d := config['Local'].get('DeletionDelay', None)) is not None:
         until -= timedelta(seconds=float(d))
-    logger.info('deleting files marked for deletion', until=until)
+    logger.debug('will delete files marked for deletion', until=until)
     db, lake = _db_and_lake(config)
     with db.new_session() as session:
         for ftd in db.get_files_to_delete(session, until):
@@ -55,7 +49,7 @@ def sync(config: Dict) -> int:
 
     def download(f: RemoteRegularFile) -> None:
         directory = Path(config['Local']['RootPath'])
-        fn = directory.resolve() / local_file_name(f)
+        fn = directory.resolve() / f.local_name
         lake.download_file(f, str(fn))
 
     with db.new_session() as session:
@@ -131,8 +125,7 @@ def sync(config: Dict) -> int:
                             (remote_file_metadata[k] for k in unique_cols) != \
                             (local_file_metadata[k] for k in unique_cols):
                         download(f)
-                        fn = local_file_name(f)
-                        to_delete = FileToDelete(name=fn)
+                        to_delete = FileToDelete(name=f.local_name)
                         session.add(to_delete)
                         log.info('old file marked for deletion')
                     for k, v in remote_file_metadata.items():
@@ -143,8 +136,7 @@ def sync(config: Dict) -> int:
         for fid in local_file_by_id.keys() - remote_file_by_id.keys():
             lf = local_file_by_id[fid]
             if not (lf.is_directory or lf.is_google_workspace_file):
-                fn = local_file_name(lf)
-                to_delete = FileToDelete(name=fn)
+                to_delete = FileToDelete(name=lf.local_name)
                 session.add(to_delete)
                 log = logger.bind(name=lf.name, id=fid)
                 log.info('file (deleted on server) marked for deletion')

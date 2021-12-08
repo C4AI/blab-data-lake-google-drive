@@ -57,6 +57,7 @@ class RemoteFile:
         return True
 
 
+
 @dataclass
 class RemoteDirectory(RemoteFile):
     children: List[RemoteFile] = field(default_factory=list)
@@ -164,6 +165,12 @@ class RemoteRegularFile(RemoteFile):
     size: int
     md5_checksum: str
     head_revision_id: str
+
+    @property
+    def local_name(self) -> str:
+        return self.id + \
+            '_' + (self.head_revision_id or '') + \
+            '_' + (self.md5_checksum or '')
 
     @property
     def is_google_workspace_file(self) -> bool:

@@ -99,6 +99,12 @@ class LocalFile(Base):
         return not self.is_directory and \
             (self.md5_checksum or '').startswith('application/vnd.google-apps')
 
+    @property
+    def local_name(self) -> str:
+        return self.id + \
+            '_' + (self.head_revision_id or '') + \
+            '_' + (self.md5_checksum or '')
+
 
 class FileToDelete(Base):
 
