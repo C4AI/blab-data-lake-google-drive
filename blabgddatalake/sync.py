@@ -27,9 +27,10 @@ def cleanup(config: Dict, delay: Optional[float] = None) -> int:
     db, lake = _db_and_lake(config)
     with db.new_session() as session:
         for ftd in db.get_files_to_delete(session, until):
-            name = Path(config['Local']['RootPath']).resolve() / ftd.name
+            name = Path(config['Local']['RootPath']).resolve() / ftd.local_name
             log = logger.bind(
-                name=ftd.name, marked_for_deletion_at=ftd.removedfromindexat)
+                name=ftd.local_name,
+                marked_for_deletion_at=ftd.removedfromindexat)
             try:
                 os.remove(name)
             except FileNotFoundError:
@@ -125,7 +126,7 @@ def sync(config: Dict) -> int:
                             (remote_file_metadata[k] for k in unique_cols) != \
                             (local_file_metadata[k] for k in unique_cols):
                         download(f)
-                        to_delete = FileToDelete(name=f.local_name)
+                        to_delete = FileToDelete(local_name=f.local_name)
                         session.add(to_delete)
                         log.info('old file marked for deletion')
                     for k, v in remote_file_metadata.items():
@@ -136,7 +137,12 @@ def sync(config: Dict) -> int:
         for fid in local_file_by_id.keys() - remote_file_by_id.keys():
             lf = local_file_by_id[fid]
             if not (lf.is_directory or lf.is_google_workspace_file):
-                to_delete = FileToDelete(name=lf.local_name)
+                d: Dict[str, Any]
+                d = dict(local_name=lf.local_name, id=lf.id, name=lf.name,
+                         modified_time=lf.modified_time,
+                         size=lf.size, head_revision_id=lf.head_revision_id,
+                         md5_checksum=lf.md5_checksum, mime_type=lf.mime_type)
+                to_delete = FileToDelete(**d)
                 session.add(to_delete)
                 log = logger.bind(name=lf.name, id=fid)
                 log.info('file (deleted on server) marked for deletion')

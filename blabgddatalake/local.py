@@ -121,9 +121,21 @@ class FileToDelete(Base):
     __tablename__ = 'filetodelete'
 
     filetodelete_id = Column(Integer, primary_key=True)
-    name: str = Column(String, nullable=False)
+    local_name: str = Column(String, nullable=False)
+
+    id: str = Column(String, nullable=False)
+    name = Column(String)
+    modified_time = Column(TimestampWithTZ())
+    mime_type = Column(String)
+    size = Column(BigInteger)
+    md5_checksum = Column(String)
+    head_revision_id = Column(String)
+
     removedfromindexat: datetime = Column(
         TimestampWithTZ(), default=datetime.now())
+
+    def as_dict(self) -> Dict[str, Any]:
+        return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
 
 class DatabaseMetadata(Base):
@@ -208,7 +220,7 @@ class LocalStorageDatabase:
     def get_file_by_id(self, session: Session, id: str) -> Optional[LocalFile]:
         log = logger.bind(id=id)
         log.info('requesting local file')
-        stmt = select(LocalFile).where(LocalFile.id==id)  # type: ignore
+        stmt = select(LocalFile).where(LocalFile.id == id)  # type: ignore
         result = session.execute(stmt)
         f = result.scalars().first()
         log.info('requested local file', found=bool(f))
@@ -226,3 +238,15 @@ class LocalStorageDatabase:
             stmt = stmt.where(FileToDelete.removedfromindexat <= until)
         result = session.execute(stmt)
         return result.scalars().all()
+
+    def get_file_to_delete(self, session: Session, id: str,
+                           head_revision_id: Optional[str] = None) \
+            -> Optional[FileToDelete]:
+        logger.info('requesting a specific file marked for deletion', id=id)
+        stmt = select(FileToDelete).where(  # type: ignore
+            FileToDelete.id == id)
+        if head_revision_id:
+            stmt = stmt.where(
+                FileToDelete.head_revision_id == head_revision_id)
+        result = session.execute(stmt)
+        return result.scalars().first()

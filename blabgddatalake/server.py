@@ -1,6 +1,7 @@
-from .local import LocalStorageDatabase
+from .local import LocalStorageDatabase, LocalFile, FileToDelete
 from flask import abort, Flask, jsonify, request, send_file
 from pathlib import Path
+from typing import Union
 
 import waitress
 
@@ -24,28 +25,31 @@ def tree() -> str:
     return jsonify({})
 
 
-@app.route("/file/<id>", methods=['GET'])
-def file(id: str) -> str:
+@app.route("/download/<id>/<head_revision_id>", methods=['GET'])
+def file(id: str, head_revision_id: str) -> str:
     config = app.config['options']
     db = LocalStorageDatabase(config['Database'])
     log = logger.bind(id=id)
     with db.new_session() as session:
+        f: Union[LocalFile, FileToDelete, None]
         f = db.get_file_by_id(session, id)
         log.info('requested file download', found=bool(f))
-        if f:
-            if f.is_directory:
-                abort(403)
-            directory = Path(config['Local']['RootPath'])
-            fn = directory.resolve() / f.local_name
-            log.info('sending file contents', local_name=fn)
-            try:
-                return send_file(fn, mimetype=f.mime_type,
-                                 download_name=f.name,
-                                 last_modified=f.modified_time,
-                                 as_attachment=True)
-            except FileNotFoundError:
-                abort(404)
-    abort(404)
+        if not f:
+            f = db.get_file_to_delete(session, id, head_revision_id)
+        if not f or isinstance(f, LocalFile) and f.is_directory:
+            abort(404)
+            return ''  # just to make mypy happy
+        directory = Path(config['Local']['RootPath'])
+        fn = directory.resolve() / f.local_name
+        log.info('sending file contents', local_name=fn)
+        try:
+            return send_file(fn, mimetype=f.mime_type,
+                             download_name=f.name,
+                             last_modified=f.modified_time,
+                             as_attachment=True)
+        except FileNotFoundError:
+            # should not happen
+            abort(503)
     return ''
 
 

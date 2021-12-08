@@ -57,7 +57,6 @@ class RemoteFile:
         return True
 
 
-
 @dataclass
 class RemoteDirectory(RemoteFile):
     children: List[RemoteFile] = field(default_factory=list)
