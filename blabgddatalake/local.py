@@ -105,6 +105,16 @@ class LocalFile(Base):
             '_' + (self.head_revision_id or '') + \
             '_' + (self.md5_checksum or '')
 
+    def as_dict(self, recursive: bool = False,
+                remove_gdfile_id: bool = False) -> Dict[str, Any]:
+        d = {c.name: getattr(self, c.name) for c in self.__table__.columns}
+        if remove_gdfile_id:
+            del d['gdfile_id']
+        if recursive and self._children:
+            d['children'] = [c.as_dict(True, remove_gdfile_id)
+                             for c in self._children]
+        return d
+
 
 class FileToDelete(Base):
 
@@ -194,6 +204,15 @@ class LocalStorageDatabase:
         result = session.execute(stmt)
         root = result.scalars().first()
         return root
+
+    def get_file_by_id(self, session: Session, id: str) -> Optional[LocalFile]:
+        log = logger.bind(id=id)
+        log.info('requesting local file')
+        stmt = select(LocalFile).where(LocalFile.id==id)  # type: ignore
+        result = session.execute(stmt)
+        f = result.scalars().first()
+        log.info('requested local file', found=bool(f))
+        return f
 
     def new_session(self) -> Session:
         return Session(self._engine)

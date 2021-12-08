@@ -10,6 +10,8 @@ google-auth = ">=2.3.3"
 SQLAlchemy = {version = ">=1.4.27", extras = ["mypy"]}
 packaging = ">=21.3"
 structlog = ">=21.4"
+Flask = ">=2.0.2"
+waitress = ">=2.0.0"
 
 [dev-packages]
 

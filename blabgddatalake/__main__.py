@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 from .sync import sync, cleanup
+from .server import serve
 import argparse
 import configparser
 import logging
@@ -41,11 +42,29 @@ def non_negative_float(s: str) -> float:
         f"invalid non-negative float value: '{s}'")
 
 
+def port(s: str) -> int:
+    try:
+        n = int(s)
+    except (ValueError, TypeError):
+        pass
+    else:
+        if 1 <= n <= 65535:
+            return n
+    raise argparse.ArgumentTypeError(
+        f"invalid port value: '{s}'")
+
+
 subparsers = parser.add_subparsers(dest='cmd', required=True)
-parser_sync = subparsers.add_parser('sync')
-parser_cleanup = subparsers.add_parser('cleanup')
+parser_sync = subparsers.add_parser(
+    'sync', help='synchronise contents from Google Drive')
+parser_cleanup = subparsers.add_parser(
+    'cleanup',
+    help='delete local files that have been deleted or overwritten '
+    + 'on Google Drive')
 parser_cleanup.add_argument(
     '--delay', help='deletion delay', type=non_negative_float)
+parser_runserver = subparsers.add_parser('serve', help='start server')
+parser_runserver.add_argument('--port', '-p', help='server port', type=port)
 
 options = parser.parse_args(sys.argv[1:])
 
@@ -62,3 +81,5 @@ if options.cmd == 'sync':
     sync(config)
 elif options.cmd == 'cleanup':
     cleanup(config, options.delay)
+elif options.cmd == 'serve':
+    serve(config, options.port)
