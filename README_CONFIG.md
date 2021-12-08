@@ -32,6 +32,15 @@
 - `Username` and `Password`: database credentials.
 - `Host` and `Port`: database address.
 - `Database`: database name.
-- `Query`: dialect-specific values (empty by default). 
+- `Query`: dialect-specific values (empty by default).
 
 ### `Local` section:
+
+- `RootPath`: full path to the local directory where files will be saved.
+- `DeletionDelay`: during a clean-up execution, only delete files that were
+    marked for deletion (by a sync execution) at least this number of seconds
+    ago.
+
+### `Server` section:
+
+- `Host` and `Port`: host and port to which the server will bind.
