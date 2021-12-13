@@ -1,6 +1,7 @@
 from .local import LocalStorageDatabase, LocalFile, FileToDelete
 from flask import abort, Flask, jsonify, request, send_file
 from pathlib import Path
+from sys import maxsize
 from typing import Union
 
 import waitress
@@ -17,12 +18,13 @@ app = Flask(__name__)
 def tree() -> str:
     config = app.config['options']
     db = LocalStorageDatabase(config['Database'])
-    recursive = request.args.get('recursive', type=int)
+    depth = request.args.get('depth', maxsize, type=int)
     with db.new_session() as session:
         local_tree = db.get_tree(session)
         if local_tree:
-            return jsonify(local_tree.as_dict(recursive, True))
-    return jsonify({})
+            return jsonify(local_tree.as_dict(depth, True))
+    abort(404)
+    return ''  # avoid mypy warning
 
 
 @app.route("/download/<id>/<head_revision_id>", methods=['GET'])
@@ -38,7 +40,7 @@ def file(id: str, head_revision_id: str) -> str:
             f = db.get_file_to_delete(session, id, head_revision_id)
         if not f or isinstance(f, LocalFile) and f.is_directory:
             abort(404)
-            return ''  # just to make mypy happy
+            return ''  # avoid mypy warning
         directory = Path(config['Local']['RootPath'])
         fn = directory.resolve() / f.local_name
         log.info('sending file contents', local_name=fn)

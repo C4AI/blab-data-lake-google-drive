@@ -2,6 +2,7 @@ import structlog
 import sqlalchemy
 from datetime import datetime, timezone
 from dateutil import tz
+from sys import maxsize
 
 from sqlalchemy import Integer, String, Boolean, BigInteger, \
     Column, ForeignKey, select, update
@@ -100,19 +101,30 @@ class LocalFile(Base):
             (self.md5_checksum or '').startswith('application/vnd.google-apps')
 
     @property
+    def can_download(self) -> bool:
+        return not self.is_directory and not self.is_google_workspace_file
+
+    @property
     def local_name(self) -> str:
         return self.id + \
             '_' + (self.head_revision_id or '') + \
             '_' + (self.md5_checksum or '')
 
-    def as_dict(self, recursive: bool = False,
+    def as_dict(self, depth: int = maxsize,
                 remove_gdfile_id: bool = False) -> Dict[str, Any]:
         d = {c.name: getattr(self, c.name) for c in self.__table__.columns}
+        d['can_download'] = self.can_download
         if remove_gdfile_id:
             del d['gdfile_id']
-        if recursive and self._children:
-            d['children'] = [c.as_dict(True, remove_gdfile_id)
+        if depth > 0 and self._children:
+            d['children'] = [c.as_dict(depth - 1, remove_gdfile_id)
                              for c in self._children]
+        if self.is_directory:
+            for k in ['head_revision_id', 'size',
+                      'md5_checksum', 'can_download']:
+                d.pop(k, None)
+        else:
+            d.pop('is_root', None)
         return d
 
 
