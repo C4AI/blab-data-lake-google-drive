@@ -2,7 +2,7 @@ import structlog
 import os
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Dict, Any, Tuple, Optional
+from typing import Any
 
 from .remote import Lake, RemoteDirectory, RemoteRegularFile
 from .local import LocalStorageDatabase, LocalFile, FileToDelete
@@ -11,13 +11,13 @@ from .local import LocalStorageDatabase, LocalFile, FileToDelete
 logger = structlog.getLogger(__name__)
 
 
-def _db_and_lake(config: Dict) -> Tuple[LocalStorageDatabase, Lake]:
+def _db_and_lake(config: dict) -> tuple[LocalStorageDatabase, Lake]:
     db = LocalStorageDatabase(config['Database'])
     lake = Lake(config['GoogleDrive'])
     return db, lake
 
 
-def cleanup(config: Dict, delay: Optional[float] = None) -> int:
+def cleanup(config: dict, delay: float | None = None) -> int:
     until = datetime.now()
     if delay is not None:
         until -= timedelta(seconds=delay)
@@ -44,7 +44,7 @@ def cleanup(config: Dict, delay: Optional[float] = None) -> int:
     return 0
 
 
-def sync(config: Dict) -> int:
+def sync(config: dict) -> int:
 
     db, lake = _db_and_lake(config)
 
@@ -56,14 +56,14 @@ def sync(config: Dict) -> int:
     with db.new_session() as session:
 
         local_tree = db.get_tree(session)
-        local_file_by_id: Dict[str, LocalFile] = local_tree.flatten() \
+        local_file_by_id: dict[str, LocalFile] = local_tree.flatten() \
             if local_tree else {}
 
         remote_tree = lake.get_tree()
         remote_file_by_id = remote_tree.flatten()
 
         for id, f in remote_file_by_id.items():
-            remote_file_metadata: Dict[str, Any] = dict(
+            remote_file_metadata: dict[str, Any] = dict(
                 id=f.id,
                 name=f.name,
                 mime_type=f.mime_type,
@@ -92,7 +92,7 @@ def sync(config: Dict) -> int:
                 session.add(new_file)
             else:
                 lf = local_file_by_id[id]
-                local_file_metadata: Dict[str, Any] = dict(
+                local_file_metadata: dict[str, Any] = dict(
                     id=lf.id,
                     name=lf.name,
                     mime_type=lf.mime_type,
@@ -137,7 +137,7 @@ def sync(config: Dict) -> int:
         for fid in local_file_by_id.keys() - remote_file_by_id.keys():
             lf = local_file_by_id[fid]
             if not (lf.is_directory or lf.is_google_workspace_file):
-                d: Dict[str, Any]
+                d: dict[str, Any]
                 d = dict(local_name=lf.local_name, id=lf.id, name=lf.name,
                          modified_time=lf.modified_time,
                          size=lf.size, head_revision_id=lf.head_revision_id,

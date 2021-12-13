@@ -10,7 +10,7 @@ from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import declarative_base, Session, relationship, backref
 from sqlalchemy.types import TypeDecorator, DateTime
 
-from typing import Dict, List, Optional, Any
+from typing import Any
 from urllib.parse import parse_qs
 from packaging.version import parse as parse_version
 
@@ -61,21 +61,21 @@ class LocalFile(Base):
         backref=backref('_children'), remote_side=[id]
     )
 
-    _children: Optional[List['LocalFile']]
+    _children: list['LocalFile'] | None
 
     @property
     def is_directory(self) -> bool:
         return self.mime_type == 'application/vnd.google-apps.folder'
 
     @property
-    def children(self) -> Optional[List['LocalFile']]:
+    def children(self) -> list['LocalFile'] | None:
         return (self._children or []) if self.is_directory else None
 
     def __repr__(self) -> str:
         return '(name={}, gdid={}, size={}, md5={})'.format(
             self.name, self.gdfile_id, self.size, self.md5_checksum)
 
-    def print_tree(self, pfx: Optional[List[bool]] = None) -> None:
+    def print_tree(self, pfx: list[bool] | None = None) -> None:
         if pfx is None:
             pfx = []
         for i, p in enumerate(pfx[:-1]):
@@ -88,8 +88,8 @@ class LocalFile(Base):
         if self.children:
             self.children[-1].print_tree(pfx + [False])
 
-    def flatten(self) -> Dict[str, 'LocalFile']:
-        d: Dict[str, 'LocalFile'] = {self.id: self}
+    def flatten(self) -> dict[str, 'LocalFile']:
+        d: dict[str, 'LocalFile'] = {self.id: self}
         for c in self.children or []:
             d.update(c.flatten() if isinstance(c, LocalFile)
                      else {c.id: c})
@@ -111,7 +111,7 @@ class LocalFile(Base):
             '_' + (self.md5_checksum or '')
 
     def as_dict(self, depth: int = maxsize,
-                remove_gdfile_id: bool = False) -> Dict[str, Any]:
+                remove_gdfile_id: bool = False) -> dict[str, Any]:
         d = {c.name: getattr(self, c.name) for c in self.__table__.columns}
         d['can_download'] = self.can_download
         if remove_gdfile_id:
@@ -146,7 +146,7 @@ class FileToDelete(Base):
     removedfromindexat: datetime = Column(
         TimestampWithTZ(), default=datetime.now())
 
-    def as_dict(self) -> Dict[str, Any]:
+    def as_dict(self) -> dict[str, Any]:
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}
 
 
@@ -164,8 +164,8 @@ class DatabaseMetadata(Base):
 
 class LocalStorageDatabase:
 
-    def __init__(self, db_config: Dict[str, str]):
-        self.db_config: Dict[str, str] = db_config
+    def __init__(self, db_config: dict[str, str]):
+        self.db_config: dict[str, str] = db_config
         self._engine = self.__create_engine()
         Base.metadata.create_all(self._engine)
         self.upgrade()
@@ -222,14 +222,14 @@ class LocalStorageDatabase:
                     session.commit()
                     current_version = v
 
-    def get_tree(self, session: Session) -> Optional[LocalFile]:
+    def get_tree(self, session: Session) -> LocalFile | None:
         logger.info('requesting local tree')
         stmt = select(LocalFile).where(LocalFile.is_root)  # type: ignore
         result = session.execute(stmt)
         root = result.scalars().first()
         return root
 
-    def get_file_by_id(self, session: Session, id: str) -> Optional[LocalFile]:
+    def get_file_by_id(self, session: Session, id: str) -> LocalFile | None:
         log = logger.bind(id=id)
         log.info('requesting local file')
         stmt = select(LocalFile).where(LocalFile.id == id)  # type: ignore
@@ -242,8 +242,8 @@ class LocalStorageDatabase:
         return Session(self._engine)
 
     def get_files_to_delete(self, session: Session,
-                            until: Optional[datetime] = None) \
-            -> List[FileToDelete]:
+                            until: datetime | None = None) \
+            -> list[FileToDelete]:
         logger.info('requesting list of files to delete', until=until)
         stmt = select(FileToDelete)  # type: ignore
         if until:
@@ -252,8 +252,8 @@ class LocalStorageDatabase:
         return result.scalars().all()
 
     def get_file_to_delete(self, session: Session, id: str,
-                           head_revision_id: Optional[str] = None) \
-            -> Optional[FileToDelete]:
+                           head_revision_id: str | None = None) \
+            -> FileToDelete | None:
         logger.info('requesting a specific file marked for deletion', id=id)
         stmt = select(FileToDelete).where(  # type: ignore
             FileToDelete.id == id)

@@ -14,6 +14,9 @@ Flask = ">=2.0.2"
 waitress = ">=2.0.0"
 
 [dev-packages]
+types-waitress = "*"
+types-python-dateutil = "*"
+pyupgrade = "*"
 
 [requires]
 python_version = "3.10"

@@ -1,8 +1,7 @@
 from .local import LocalStorageDatabase, LocalFile, FileToDelete
-from flask import abort, Flask, jsonify, request, send_file
+from flask import abort, Flask, jsonify, request, Response, send_file
 from pathlib import Path
 from sys import maxsize
-from typing import Union
 
 import waitress
 
@@ -15,7 +14,7 @@ app = Flask(__name__)
 
 
 @app.route("/tree", methods=['GET'])
-def tree() -> str:
+def tree() -> Response | None:
     config = app.config['options']
     db = LocalStorageDatabase(config['Database'])
     depth = request.args.get('depth', maxsize, type=int)
@@ -24,23 +23,21 @@ def tree() -> str:
         if local_tree:
             return jsonify(local_tree.as_dict(depth, True))
     abort(404)
-    return ''  # avoid mypy warning
 
 
 @app.route("/download/<id>/<head_revision_id>", methods=['GET'])
-def file(id: str, head_revision_id: str) -> str:
+def file(id: str, head_revision_id: str) -> Response | None:
     config = app.config['options']
     db = LocalStorageDatabase(config['Database'])
     log = logger.bind(id=id)
     with db.new_session() as session:
-        f: Union[LocalFile, FileToDelete, None]
+        f: LocalFile | FileToDelete | None
         f = db.get_file_by_id(session, id)
         log.info('requested file download', found=bool(f))
         if not f:
             f = db.get_file_to_delete(session, id, head_revision_id)
         if not f or isinstance(f, LocalFile) and f.is_directory:
             abort(404)
-            return ''  # avoid mypy warning
         directory = Path(config['Local']['RootPath'])
         fn = directory.resolve() / f.local_name
         log.info('sending file contents', local_name=fn)
@@ -52,7 +49,6 @@ def file(id: str, head_revision_id: str) -> str:
         except FileNotFoundError:
             # should not happen
             abort(503)
-    return ''
 
 
 def serve(config: dict, port: int) -> int:

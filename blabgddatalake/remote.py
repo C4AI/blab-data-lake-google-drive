@@ -3,7 +3,7 @@
 from datetime import datetime
 from dataclasses import dataclass, field
 from dateutil import parser as timestamp_parser
-from typing import Optional, List, Dict
+from typing import Optional
 
 import structlog
 
@@ -34,7 +34,7 @@ class RemoteFile:
     web_url: str
     parent: Optional['RemoteDirectory']
 
-    def print_tree(self, pfx: Optional[List[bool]] = None) -> None:
+    def print_tree(self, pfx: list[bool] | None = None) -> None:
         if pfx is None:
             pfx = []
         for i, p in enumerate(pfx[:-1]):
@@ -59,11 +59,11 @@ class RemoteFile:
 
 @dataclass
 class RemoteDirectory(RemoteFile):
-    children: List[RemoteFile] = field(default_factory=list)
+    children: list[RemoteFile] = field(default_factory=list)
     is_root: bool = False
 
     def _fill_children(self, service: Resource,
-                       gd_config: Dict[str, str]) -> None:
+                       gd_config: dict[str, str]) -> None:
         q_items = ['not trashed']
         if self.id:
             q_items.append(f"'{self.id}' in parents")
@@ -116,7 +116,7 @@ class RemoteDirectory(RemoteFile):
 
     @classmethod
     def get_tree(cls,
-                 service: Resource, gd_config: Dict[str, str]
+                 service: Resource, gd_config: dict[str, str]
                  ) -> 'RemoteDirectory':
         this_id = gd_config.get('SubTreeRootId', None) or \
             gd_config.get('SharedDriveId', None)
@@ -142,14 +142,14 @@ class RemoteDirectory(RemoteFile):
         root._fill_children(service, gd_config)
         return root
 
-    def flatten(self) -> Dict[str, RemoteFile]:
-        d: Dict[str, RemoteFile] = {self.id: self}
+    def flatten(self) -> dict[str, RemoteFile]:
+        d: dict[str, RemoteFile] = {self.id: self}
         for c in self.children:
             d.update(c.flatten() if isinstance(c, RemoteDirectory)
                      else {c.id: c})
         return d
 
-    def print_tree(self, pfx: Optional[List[bool]] = None) -> None:
+    def print_tree(self, pfx: list[bool] | None = None) -> None:
         super().print_tree(pfx)
         if pfx is None:
             pfx = []
@@ -178,7 +178,7 @@ class RemoteRegularFile(RemoteFile):
 
 class Lake:
 
-    def __init__(self, gd_config: Dict[str, str]):
+    def __init__(self, gd_config: dict[str, str]):
         self.gd_config = gd_config
         self.service = self.__get_service()
 
