@@ -13,13 +13,15 @@ logger = structlog.getLogger(__name__)
 app = Flask(__name__)
 
 
-@app.route("/tree", methods=['GET'])
-def tree() -> Response | None:
+@app.route("/tree", defaults={'id': None}, methods=['GET'])
+@app.route("/tree/<id>", methods=['GET'])
+def tree(id: str | None = None) -> Response | None:
     config = app.config['options']
     db = LocalStorageDatabase(config['Database'])
     depth = request.args.get('depth', maxsize, type=int)
     with db.new_session() as session:
-        local_tree = db.get_tree(session)
+        local_tree = db.get_tree(session) if id is None \
+            else db.get_file_by_id(session, id)
         if local_tree:
             return jsonify(local_tree.as_dict(depth, True))
     abort(404)
