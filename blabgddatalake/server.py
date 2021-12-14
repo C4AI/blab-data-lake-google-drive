@@ -13,7 +13,7 @@ logger = structlog.getLogger(__name__)
 app = Flask(__name__)
 
 
-@app.route("/tree", defaults={'id': None}, methods=['GET'])
+@app.route("/tree", methods=['GET'])
 @app.route("/tree/<id>", methods=['GET'])
 def tree(id: str | None = None) -> Response | None:
     config = app.config['options']
