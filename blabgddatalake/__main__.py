@@ -59,8 +59,8 @@ parser_sync = subparsers.add_parser(
     'sync', help='synchronise contents from Google Drive')
 parser_cleanup = subparsers.add_parser(
     'cleanup',
-    help='delete local files that have been deleted or overwritten '
-    + 'on Google Drive')
+    help='delete local files that have been deleted or overwritten ' +
+    'on Google Drive')
 parser_cleanup.add_argument(
     '--delay', help='deletion delay', type=non_negative_float)
 parser_runserver = subparsers.add_parser('serve', help='start server')
