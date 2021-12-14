@@ -56,7 +56,8 @@ def file(id: str, head_revision_id: str) -> Response | None:
 def serve(config: dict, port: int) -> int:
     if port is None:
         port = int(p) if (p := config['Server']['Port']) is not None else None
+    host = config['Server']['Host']
     app.config['options'] = config
     app.config['JSON_SORT_KEYS'] = False
-    waitress.serve(app, port=port)
+    waitress.serve(app, host=host, port=port)
     return 0
