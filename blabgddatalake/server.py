@@ -23,7 +23,7 @@ def tree(id: str | None = None) -> Response | None:
         local_tree = db.get_tree(session) if id is None \
             else db.get_file_by_id(session, id)
         if local_tree:
-            return jsonify(local_tree.as_dict(depth, True))
+            return jsonify({'tree': local_tree.as_dict(depth, True)})
     abort(404)
 
 
