@@ -54,9 +54,10 @@ def file(id: str, head_revision_id: str) -> Response | None:
 
 
 def serve(config: dict, port: int) -> int:
+    server_cfg = config['LakeServer']
     if port is None:
-        port = int(p) if (p := config['Server']['Port']) is not None else None
-    host = config['Server']['Host']
+        port = int(p) if (p := server_cfg['Port']) is not None else None
+    host = server_cfg['Host']
     app.config['options'] = config
     app.config['JSON_SORT_KEYS'] = False
     waitress.serve(app, host=host, port=port)
