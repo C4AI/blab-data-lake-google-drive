@@ -41,6 +41,6 @@
     marked for deletion (by a sync execution) at least this number of seconds
     ago.
 
-### `Server` section:
+### `LakeServer` section:
 
 - `Host` and `Port`: host and port to which the server will bind.
