@@ -110,10 +110,18 @@ class LocalFile(Base):
             '_' + (self.head_revision_id or '') + \
             '_' + (self.md5_checksum or '')
 
+    @property
+    def virtual_path(self) -> list[str]:
+        p = []
+        if self.parent and not self.parent.is_root:
+            p = self.parent.virtual_path
+        return p + [self.name or '']
+
     def as_dict(self, depth: int = maxsize,
                 remove_gdfile_id: bool = False) -> dict[str, Any]:
         d = {c.name: getattr(self, c.name) for c in self.__table__.columns}
         d['can_download'] = self.can_download
+        d['virtual_path'] = self.virtual_path
         if remove_gdfile_id:
             del d['gdfile_id']
         if depth > 0 and self._children:
