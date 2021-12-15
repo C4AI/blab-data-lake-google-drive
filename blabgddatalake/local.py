@@ -49,6 +49,7 @@ class LocalFile(Base):
     modified_time = Column(TimestampWithTZ())
     modified_by = Column(String)
     web_url = Column(String)
+    icon_url = Column(String)
     is_root = Column(Boolean, default=False)
     mime_type = Column(String)
     size = Column(BigInteger)

@@ -71,6 +71,7 @@ def sync(config: dict) -> int:
                 modified_time=f.modified_time,
                 modified_by=f.modified_by,
                 web_url=f.web_url,
+                icon_url=f.icon_url,
                 parent_id=p.id if (p := f.parent) else None,
             )
             if isinstance(f, RemoteRegularFile):
@@ -100,6 +101,7 @@ def sync(config: dict) -> int:
                     modified_time=lf.modified_time,
                     modified_by=lf.modified_by,
                     web_url=lf.web_url,
+                    icon_url=f.icon_url,
                     parent_id=par.id if (par := lf.parent) else None,
                 )
                 if not lf.is_directory:

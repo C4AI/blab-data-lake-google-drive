@@ -20,6 +20,7 @@ DEFAULT_PAGE_SIZE = 100
 FILE_FIELDS = ', '.join(['id', 'name', 'parents', 'kind', 'mimeType',
                          'webViewLink', 'md5Checksum', 'size', 'createdTime',
                          'modifiedTime', 'lastModifyingUser', 'headRevisionId',
+                         'iconLink',
                          ])
 
 
@@ -32,6 +33,7 @@ class RemoteFile:
     modified_time: datetime
     modified_by: str
     web_url: str
+    icon_url: str
     parent: Optional['RemoteDirectory']
 
     def print_tree(self, pfx: list[bool] | None = None) -> None:
@@ -98,7 +100,7 @@ class RemoteDirectory(RemoteFile):
                         timestamp_parser.parse(f['createdTime']),
                         timestamp_parser.parse(f['modifiedTime']),
                         f['lastModifyingUser']['displayName'],
-                        f['webViewLink'],
+                        f['webViewLink'], f['iconLink'],
                         self,
                         ]
             node: RemoteFile
@@ -133,7 +135,7 @@ class RemoteDirectory(RemoteFile):
                         timestamp_parser.parse(f['createdTime']),
                         timestamp_parser.parse(f['modifiedTime']),
                         f['lastModifyingUser']['displayName'],
-                        f['webViewLink'],
+                        f['webViewLink'], f['iconLink'],
                         None,
                         ]
         else:
