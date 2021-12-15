@@ -37,6 +37,7 @@
 ### `Local` section:
 
 - `RootPath`: full path to the local directory where files will be saved.
+  The directory must exist.
 - `DeletionDelay`: during a clean-up execution, only delete files that were
     marked for deletion (by a sync execution) at least this number of seconds
     ago.

@@ -19,5 +19,6 @@
 
 ## Execution:
 
-- Run `blabdatalake.py` with one of the available commands (`sync`, `cleanup`,
-  `serve`) and its arguments. Add `-h` to display usage help.
+- Run `pipenv run blabdatalake.py` with one of the available commands
+  (`sync`, `cleanup`, `serve`) and its arguments.
+  Add `-h` to display usage help.
