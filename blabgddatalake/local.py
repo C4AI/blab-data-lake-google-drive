@@ -14,7 +14,7 @@ from sys import maxsize
 from typing import Any
 from urllib.parse import parse_qs
 
-from . import VERSION
+from . import __version__ as VERSION
 
 
 logger = getLogger(__name__)
