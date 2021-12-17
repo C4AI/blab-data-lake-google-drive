@@ -1,8 +1,0 @@
-python-dateutil>=2.8.2
-packaging>=21.3
-google-api-python-client>=2.30.0
-google-auth>=2.3.3
-sqlalchemy[mypy]>=1.4.27
-structlog>=21.4
-Flask>=2.0.2
-waitress>=2.0.0
