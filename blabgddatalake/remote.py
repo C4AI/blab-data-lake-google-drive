@@ -6,9 +6,8 @@ from datetime import datetime
 from google.oauth2 import service_account
 from googleapiclient.http import MediaIoBaseDownload
 from googleapiclient.discovery import build, Resource
-from stuctlog import getLogger
+from structlog import getLogger
 from typing import Optional
-
 
 
 logger = getLogger(__name__)

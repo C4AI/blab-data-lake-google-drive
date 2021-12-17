@@ -6,7 +6,7 @@ from sqlalchemy import Integer, String, Boolean, BigInteger, \
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Dialect
 from sqlalchemy.engine.base import Engine
-from sqlalchemy.engine.URL import create as sqlalchemy_url
+from sqlalchemy.engine import URL as sqlalchemy_url
 from sqlalchemy.orm import declarative_base, Session, relationship, backref
 from sqlalchemy.types import TypeDecorator, DateTime
 from structlog import getLogger
@@ -182,7 +182,7 @@ class LocalStorageDatabase:
     def __create_engine(self) -> Engine:
         cfg = self.db_config
         driver = cfg.get('Driver', '')
-        url = sqlalchemy_url(
+        url = sqlalchemy_url.create(
             cfg['Dialect'] + ('+' if driver else '') + driver,
             username=cfg.get('Username', None),
             password=cfg.get('Password', None),
