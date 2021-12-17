@@ -1,20 +1,21 @@
-import structlog
-import os
 from datetime import datetime, timedelta
+from os import remove as os_delete_file
 from pathlib import Path
+from structlog import getLogger
 from typing import Any
 
-from .remote import Lake, RemoteDirectory, RemoteRegularFile
+from .remote import RemoteDirectory, RemoteRegularFile, \
+    GoogleDriveService as GDService
 from .local import LocalStorageDatabase, LocalFile, FileToDelete
 
 
-logger = structlog.getLogger(__name__)
+logger = getLogger(__name__)
 
 
-def _db_and_lake(config: dict) -> tuple[LocalStorageDatabase, Lake]:
+def _db_and_gdservice(config: dict) -> tuple[LocalStorageDatabase, GDService]:
     db = LocalStorageDatabase(config['Database'])
-    lake = Lake(config['GoogleDrive'])
-    return db, lake
+    gdservice = GDService(config['GoogleDrive'])
+    return db, gdservice
 
 
 def cleanup(config: dict, delay: float | None = None) -> int:
@@ -32,7 +33,7 @@ def cleanup(config: dict, delay: float | None = None) -> int:
                 name=ftd.local_name,
                 marked_for_deletion_at=ftd.removedfromindexat)
             try:
-                os.remove(name)
+                os_delete_file(name)
             except FileNotFoundError:
                 log.warn('not deleting file because it no longer exists')
             except Exception:

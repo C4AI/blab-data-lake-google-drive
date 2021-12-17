@@ -1,23 +1,23 @@
-import structlog
-import sqlalchemy
 from datetime import datetime, timezone
 from dateutil import tz
-from sys import maxsize
-
+from packaging.version import parse as parse_version
 from sqlalchemy import Integer, String, Boolean, BigInteger, \
     Column, ForeignKey, select, update
+from sqlalchemy import create_engine
 from sqlalchemy.engine import Dialect
+from sqlalchemy.engine.base import Engine
+from sqlalchemy.engine.URL import create as sqlalchemy_url
 from sqlalchemy.orm import declarative_base, Session, relationship, backref
 from sqlalchemy.types import TypeDecorator, DateTime
-
+from structlog import getLogger
+from sys import maxsize
 from typing import Any
 from urllib.parse import parse_qs
-from packaging.version import parse as parse_version
 
 from . import VERSION
 
 
-logger = structlog.getLogger(__name__)
+logger = getLogger(__name__)
 
 
 Base = declarative_base()
@@ -179,10 +179,10 @@ class LocalStorageDatabase:
         Base.metadata.create_all(self._engine)
         self.upgrade()
 
-    def __create_engine(self) -> sqlalchemy.engine.base.Engine:
+    def __create_engine(self) -> Engine:
         cfg = self.db_config
         driver = cfg.get('Driver', '')
-        url = sqlalchemy.engine.URL.create(
+        url = sqlalchemy_url(
             cfg['Dialect'] + ('+' if driver else '') + driver,
             username=cfg.get('Username', None),
             password=cfg.get('Password', None),
@@ -191,7 +191,7 @@ class LocalStorageDatabase:
             database=cfg.get('Database', None),
             query=parse_qs(cfg.get('Query', ''))
         )
-        return sqlalchemy.create_engine(url)
+        return create_engine(url)
 
     def upgrade(self) -> None:
         with Session(self._engine) as session:

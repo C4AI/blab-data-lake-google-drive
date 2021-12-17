@@ -1,13 +1,14 @@
-from .local import LocalStorageDatabase, LocalFile, FileToDelete
 from flask import abort, Flask, jsonify, request, Response, send_file
 from pathlib import Path
+from structlog import getLogger
 from sys import maxsize
+from waitress import serve as waitress_serve
 
-import waitress
 
-import structlog
+from .local import LocalStorageDatabase, LocalFile, FileToDelete
 
-logger = structlog.getLogger(__name__)
+
+logger = getLogger(__name__)
 
 
 app = Flask(__name__)
@@ -60,5 +61,5 @@ def serve(config: dict, port: int) -> int:
     host = server_cfg['Host']
     app.config['options'] = config
     app.config['JSON_SORT_KEYS'] = False
-    waitress.serve(app, host=host, port=port)
+    waitress_serve(app, host=host, port=port)
     return 0

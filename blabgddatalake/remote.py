@@ -1,19 +1,17 @@
 #!/usr/bin/env python3
 
-from datetime import datetime
-from dataclasses import dataclass, field
 from dateutil import parser as timestamp_parser
+from dataclasses import dataclass, field
+from datetime import datetime
+from google.oauth2 import service_account
+from googleapiclient.http import MediaIoBaseDownload
+from googleapiclient.discovery import build, Resource
+from stuctlog import getLogger
 from typing import Optional
 
-import structlog
-
-from googleapiclient.discovery import build, Resource
-from googleapiclient.http import MediaIoBaseDownload
-
-from google.oauth2 import service_account
 
 
-logger = structlog.getLogger(__name__)
+logger = getLogger(__name__)
 
 
 DEFAULT_PAGE_SIZE = 100
