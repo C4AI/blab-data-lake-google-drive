@@ -176,7 +176,7 @@ class RemoteRegularFile(RemoteFile):
         return self.md5_checksum.startswith('application/vnd.google-apps')
 
 
-class Lake:
+class GoogleDriveService:
 
     def __init__(self, gd_config: dict[str, str]):
         self.gd_config = gd_config

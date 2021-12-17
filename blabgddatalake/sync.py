@@ -25,7 +25,7 @@ def cleanup(config: dict, delay: float | None = None) -> int:
     elif (d := config['Local'].get('DeletionDelay', None)) is not None:
         until -= timedelta(seconds=float(d))
     logger.debug('will delete files marked for deletion', until=until)
-    db, lake = _db_and_lake(config)
+    db, gdservice = _db_and_gdservice(config)
     with db.new_session() as session:
         for ftd in db.get_files_to_delete(session, until):
             name = Path(config['Local']['RootPath']).resolve() / ftd.local_name
@@ -47,12 +47,12 @@ def cleanup(config: dict, delay: float | None = None) -> int:
 
 def sync(config: dict) -> int:
 
-    db, lake = _db_and_lake(config)
+    db, gdservice = _db_and_gdservice(config)
 
     def download(f: RemoteRegularFile) -> None:
         directory = Path(config['Local']['RootPath'])
         fn = directory.resolve() / f.local_name
-        lake.download_file(f, str(fn))
+        gdservice.download_file(f, str(fn))
 
     with db.new_session() as session:
 
@@ -60,7 +60,7 @@ def sync(config: dict) -> int:
         local_file_by_id: dict[str, LocalFile] = local_tree.flatten() \
             if local_tree else {}
 
-        remote_tree = lake.get_tree()
+        remote_tree = gdservice.get_tree()
         remote_file_by_id = remote_tree.flatten()
 
         for id, f in remote_file_by_id.items():
