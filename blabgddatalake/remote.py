@@ -1,4 +1,3 @@
-#!/usr/bin/env python3
 """A module that interacts with Google Drive API."""
 
 from __future__ import annotations
@@ -167,7 +166,7 @@ class RemoteDirectory(RemoteFile):
 
         Returns:
             an object representing the root directory defined
-            by the ``SubTreeRootId`` field of :paramref:`gd_config`.
+            by the ``SubTreeRootId`` field of `gd_config`.
         """
         this_id = gd_config.get('SubTreeRootId', None) or \
             gd_config.get('SharedDriveId', None)

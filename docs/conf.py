@@ -201,9 +201,12 @@ intersphinx_mapping = {'https://docs.python.org/': None}
 # If true, `todo` and `todoList` produce output, else they produce nothing.
 todo_include_todos = True
 
+# Include documentation for __init__
+autoclass_content = 'both'
+
 
 def fix_sig(app, what, name, obj, options, signature, return_annotation):  # noqa: ANN
-    """Hide types from function signature."""
+    """Hide types from function signature."""  # noqa:DAR
     from inspect import Signature, Parameter
     if not callable(obj):
         return (signature, return_annotation)
@@ -215,5 +218,13 @@ def fix_sig(app, what, name, obj, options, signature, return_annotation):  # noq
     return (str(sig), return_annotation)
 
 
+def keep_version(app, what, name, obj, would_skip, options):  # noqa: ANN
+    """Do not ignore __version__."""  # noqa:DAR
+    if name == '__version__':
+        return False
+    return would_skip
+
+
 def setup(app):  # noqa: ANN
     app.connect("autodoc-process-signature", fix_sig)
+    app.connect("autodoc-skip-member", keep_version)

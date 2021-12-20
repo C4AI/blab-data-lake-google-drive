@@ -1,3 +1,5 @@
+"""A module that provides methods to sync files from Google Drive."""
+
 from datetime import datetime, timedelta
 from os import remove as os_delete_file
 from pathlib import Path
@@ -19,6 +21,18 @@ def _db_and_gdservice(config: dict) -> tuple[LocalStorageDatabase, GDService]:
 
 
 def cleanup(config: dict, delay: float | None = None) -> int:
+    """Delete local files that were marked for deletion before a given instant.
+
+    Args:
+        config: configuration parameters (see
+            :download:`the documentation <../README_CONFIG.md>`).
+        delay: only delete files that were marked for deletion at least
+            this number of seconds ago (optional, overrides
+            ``config['Local']['DeletionDelay']``).
+
+    Returns:
+        0 if no errors occurred, 1 otherwise
+    """
     until = datetime.now()
     if delay is not None:
         until -= timedelta(seconds=delay)
@@ -46,7 +60,15 @@ def cleanup(config: dict, delay: float | None = None) -> int:
 
 
 def sync(config: dict) -> int:
+    """Sync files from Google Drive.
 
+    Args:
+        config: configuration parameters (see
+            :download:`the documentation <../README_CONFIG.md>`).
+
+    Returns:
+        0 if no errors occurred, 1 otherwise
+    """
     db, gdservice = _db_and_gdservice(config)
 
     def download(f: RemoteRegularFile) -> None:
