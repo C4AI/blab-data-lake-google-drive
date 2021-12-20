@@ -193,7 +193,7 @@ class RemoteDirectory(RemoteFile):
         return root
 
     def flatten(self) -> dict[str, RemoteFile]:
-        """Convert tree to a flat dictionary.
+        """Convert the tree to a flat dictionary.
 
         Returns:
             a flat dictionary where files are mapped by their ids
@@ -220,7 +220,7 @@ class RemoteRegularFile(RemoteFile):
     """Represents a regular file stored on Google Drive."""
 
     size: int
-    """File size in bytes."""
+    """File size in bytes"""
 
     md5_checksum: str
     """File hash"""
