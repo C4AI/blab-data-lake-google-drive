@@ -23,7 +23,7 @@ logger = getLogger(__name__)
 Base = declarative_base()
 
 
-class TimestampWithTZ(TypeDecorator):
+class _TimestampWithTZ(TypeDecorator):
     impl = DateTime
     cache_ok = True
 
@@ -45,8 +45,8 @@ class LocalFile(Base):
     gdfile_id = Column(Integer, primary_key=True)
     id: str = Column(String, unique=True, nullable=False)
     name = Column(String)
-    created_time = Column(TimestampWithTZ())
-    modified_time = Column(TimestampWithTZ())
+    created_time = Column(_TimestampWithTZ())
+    modified_time = Column(_TimestampWithTZ())
     modified_by = Column(String)
     web_url = Column(String)
     icon_url = Column(String)
@@ -146,14 +146,14 @@ class FileToDelete(Base):
 
     id: str = Column(String, nullable=False)
     name = Column(String)
-    modified_time = Column(TimestampWithTZ())
+    modified_time = Column(_TimestampWithTZ())
     mime_type = Column(String)
     size = Column(BigInteger)
     md5_checksum = Column(String)
     head_revision_id = Column(String)
 
     removedfromindexat: datetime = Column(
-        TimestampWithTZ(), default=datetime.now())
+        _TimestampWithTZ(), default=datetime.now())
 
     def as_dict(self) -> dict[str, Any]:
         return {c.name: getattr(self, c.name) for c in self.__table__.columns}
@@ -231,14 +231,45 @@ class LocalStorageDatabase:
                     session.commit()
                     current_version = v
 
-    def get_tree(self, session: Session) -> LocalFile | None:
+    def get_tree(self, session: Session) -> LocalFile:
+        """Return an object representing the root of the local file tree.
+
+        The files and subdirectories can be accessed in the
+        `children` attribute as long as the `session` is still open.
+
+        Args:
+            session: the database session
+
+        Returns:
+            an object representing the root of the local
+            file tree (which is a snapshot of the contents stored in
+            Google Drive)
+
+        Raises:
+            RuntimeError: if the local database is corrupted and does not
+                contain a root directory
+        """
         logger.info('requesting local tree')
         stmt = select(LocalFile).where(LocalFile.is_root)  # type: ignore
         result = session.execute(stmt)
         root = result.scalars().first()
+        if root is None:
+            raise RuntimeError('Local database has no root directory')
         return root
 
     def get_file_by_id(self, session: Session, id: str) -> LocalFile | None:
+        """Return an object representing a specific file stored locally.
+
+        It can be a regular file or a directory.
+
+        Args:
+            session: the database session
+            id: the id of the file or directory
+
+        Returns:
+            an object representing the file with the specified id,
+            or `None` if it does not exist
+        """
         log = logger.bind(id=id)
         log.info('requesting local file')
         stmt = select(LocalFile).where(LocalFile.id == id)  # type: ignore
@@ -253,6 +284,21 @@ class LocalStorageDatabase:
     def get_files_to_delete(self, session: Session,
                             until: datetime | None = None) \
             -> list[FileToDelete]:
+        """Return files marked for deletion before a given instant.
+
+        This method only applies to regular files. The returned files
+        have been either deleted or overwritten with newer versions on
+        Google Drive.
+
+        Args:
+            session: the database session
+            until: if set, only files that have marked for deletion up to
+                the specified instant will be returned
+
+        Returns:
+            a (possibly empty) list of objects representing the files
+            that have been marked for deletion until the time set by `until`
+        """
         logger.info('requesting list of files to delete', until=until)
         stmt = select(FileToDelete)  # type: ignore
         if until:
@@ -261,8 +307,23 @@ class LocalStorageDatabase:
         return result.scalars().all()
 
     def get_file_to_delete(self, session: Session, id: str,
-                           head_revision_id: str | None = None) \
+                           head_revision_id: str) \
             -> FileToDelete | None:
+        """Return a specific version of a file marked for deletion.
+
+        This method only applies to regular files that have been either
+        deleted or overwritten with newer versions on
+        Google Drive.
+
+        Args:
+            session: the database session
+            id: the id of the file
+            head_revision_id: the id of the specific header version
+
+        Returns:
+            an object representing the file marked for deletion, or `None`
+            if it does not exist
+        """
         logger.info('requesting a specific file marked for deletion', id=id)
         stmt = select(FileToDelete).where(  # type: ignore
             FileToDelete.id == id)

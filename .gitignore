@@ -1,6 +1,7 @@
 auth/
 blab-*-settings.cfg
-
+docs/*.rst
+!docs/index.rst
 
 
 

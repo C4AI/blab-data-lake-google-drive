@@ -10,15 +10,15 @@ from structlog import getLogger
 from typing import Optional
 
 
-logger = getLogger(__name__)
+_logger = getLogger(__name__)
 
 
-DEFAULT_PAGE_SIZE = 100
-FILE_FIELDS = ', '.join(['id', 'name', 'parents', 'kind', 'mimeType',
+_DEFAULT_PAGE_SIZE = 100
+_FILE_FIELDS = ', '.join(['id', 'name', 'parents', 'kind', 'mimeType',
                          'webViewLink', 'md5Checksum', 'size', 'createdTime',
-                         'modifiedTime', 'lastModifyingUser', 'headRevisionId',
-                         'iconLink',
-                         ])
+                          'modifiedTime', 'lastModifyingUser',
+                          'headRevisionId', 'iconLink',
+                          ])
 
 
 @dataclass
@@ -43,7 +43,7 @@ class RemoteFile:
         print(self.name)
 
     def download(self, service: Resource, file_name: str) -> bool:
-        log = logger.bind(id=self.id, name=self.name, local_name=file_name)
+        log = _logger.bind(id=self.id, name=self.name, local_name=file_name)
         log.info('downloading file')
         with open(file_name, 'wb') as fd:
             request = service.files().get_media(
@@ -73,15 +73,16 @@ class RemoteDirectory(RemoteFile):
             includeItemsFromAllDrives=bool(shared_drive_id),
             driveId=shared_drive_id or None,
             corpora='drive' if shared_drive_id else 'user',
-            pageSize=int(gd_config.get('PageSize', None) or DEFAULT_PAGE_SIZE),
-            fields=f'nextPageToken, files({FILE_FIELDS})',
+            pageSize=int(gd_config.get('PageSize', None) or
+                         _DEFAULT_PAGE_SIZE),
+            fields=f'nextPageToken, files({_FILE_FIELDS})',
             orderBy='folder, name',
             q=q
         )
         page_token = None
         children = []
         page = 0
-        log = logger.bind(id=self.id)
+        log = _logger.bind(id=self.id)
         while page_token is not None or page == 0:
             request = service.files().list(
                 pageToken=page_token,
@@ -124,9 +125,9 @@ class RemoteDirectory(RemoteFile):
             request = service.files().get(
                 fileId=this_id,
                 supportsAllDrives=bool(shared_drive_id),
-                fields=FILE_FIELDS,
+                fields=_FILE_FIELDS,
             )
-            logger.debug('requesting root directory', id=this_id)
+            _logger.debug('requesting root directory', id=this_id)
             f = request.execute()
             metadata = [f['name'], f['id'], f['mimeType'],
                         timestamp_parser.parse(f['createdTime']),
@@ -176,8 +177,18 @@ class RemoteRegularFile(RemoteFile):
 
 
 class GoogleDriveService:
+    """A class that wraps Google Drive API to obtain the directory tree.
+
+    This class provides a method that obtains the directory tree
+    from a Google Drive directory or shared drive.
+    """
 
     def __init__(self, gd_config: dict[str, str]):
+        """Create an instance using the configuration given at `gd_config`.
+
+        For a description of the expected keys and values of `gd_config`,
+        see :download:`the documentation <../README_CONFIG.md>`.
+        """
         self.gd_config = gd_config
         self.service = self.__get_service()
 
@@ -189,7 +200,14 @@ class GoogleDriveService:
         return s
 
     def get_tree(self) -> RemoteDirectory:
+        """
+        Fetch and return the directory tree from Google Drive.
+
+        The returned `RemoteDirectory` object is the root directory defined
+        by the ``SubTreeRootId`` field of `gd_config`. There is no depth limit.
+        """
         return RemoteDirectory.get_tree(self.service, self.gd_config)
 
     def download_file(self, file: RemoteRegularFile, output_file: str) -> None:
+        """Download `file` and save it as a local file at `output_file`."""
         file.download(self.service, output_file)
