@@ -266,10 +266,10 @@ class GoogleDriveService:
         see the section ``GoogleDrive`` in
         :download:`the documentation <../README_CONFIG.md>`.
         """  # noqa:D205,D400
-        self.gd_config = gd_config
+        self.gd_config: dict[str, str] = gd_config
         """Configuration parameters"""
 
-        self.service = self.__get_service()
+        self.service: Resource = self.__get_service()
         """Google Drive service."""
 
     def __get_service(self) -> Resource:
