@@ -14,5 +14,5 @@ dev:
 
 
 doc:
-	sphinx-apidoc --separate --module-first  -o docs blabgddatalake/ 
+	sphinx-apidoc -f --separate --module-first  -o docs blabgddatalake/ 
 	make -C docs html
