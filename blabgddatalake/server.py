@@ -59,11 +59,11 @@ def file(id: str, revision_id: str) -> Response | None:
         f = db.get_file_by_id(session, id)
         log.info('requested file download', found=bool(f))
         if not isinstance(f, LocalRegularFile):
-            abort(404)
+            return Response(status=404)
         try:
             rev = next(r for r in f.revisions if r.revision_id == revision_id)
         except StopIteration:
-            abort(404)
+            return Response(status=404)
         directory = Path(config['Local']['RootPath'])
         fn = directory.resolve() / rev.local_name
         log.info('sending file contents', local_name=fn)
@@ -74,7 +74,7 @@ def file(id: str, revision_id: str) -> Response | None:
                              as_attachment=True)
         except FileNotFoundError:
             # should not happen
-            abort(503)
+            return Response(status=503)
 
 
 def serve(config: dict, port: int | None) -> int:

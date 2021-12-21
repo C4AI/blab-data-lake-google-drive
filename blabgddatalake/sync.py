@@ -80,7 +80,8 @@ def sync(config: dict) -> int:
     with db.new_session() as session:
 
         local_tree = db.get_tree(session)
-        local_file_by_id: dict[str, LocalFile] = local_tree.flatten()
+        local_file_by_id: dict[str, LocalFile] = \
+            local_tree.flatten() if local_tree else {}
 
         remote_tree = gdservice.get_tree()
         remote_file_by_id = remote_tree.flatten()
@@ -99,26 +100,26 @@ def sync(config: dict) -> int:
             )
             remote_revision_metadata: dict[str, Any] = {}
             if isinstance(f, RemoteRegularFile):
-                remote_file_metadata.update(
-                    head_revision_id=f.head_revision_id
-                )
-                remote_revision_metadata.update(
-                    file_id=f.id,
-                    revision_id=f.head_revision_id,
-                    modified_time=f.modified_time,
-                    modified_by=f.modified_by,
-                    mime_type=f.mime_type,
-                    size=f.size,
-                    md5_checksum=f.md5_checksum,
-                )
+                if not f.is_google_workspace_file:
+                    remote_file_metadata.update(
+                        head_revision_id=f.head_revision_id
+                    )
+                    remote_revision_metadata.update(
+                        file_id=f.id,
+                        revision_id=f.head_revision_id,
+                        modified_time=f.modified_time,
+                        modified_by=f.modified_by,
+                        mime_type=f.mime_type,
+                        size=f.size,
+                        md5_checksum=f.md5_checksum,
+                    )
             elif isinstance(f, RemoteDirectory):
                 remote_file_metadata.update(is_root=f.is_root)
 
             if id not in local_file_by_id:
                 # file is new
                 if isinstance(f, RemoteRegularFile):
-                    mt = f.mime_type
-                    if not mt.startswith('application/vnd.google-apps'):
+                    if not f.is_google_workspace_file:
                         download(f)
                 new_file: LocalFile
                 if isinstance(f, RemoteRegularFile):
@@ -158,6 +159,10 @@ def sync(config: dict) -> int:
                         md5_checksum=lf.md5_checksum,
                         size=lf.size,
                         revision_id=lf.head_revision_id,
+                        modified_time=lf.modified_time,
+                        modified_by=lf.modified_by,
+                        mime_type=lf.mime_type,
+                        file_id=lf.id,
                     )
                 elif isinstance(lf, LocalGoogleWorkspaceFile):
                     pass
@@ -176,7 +181,6 @@ def sync(config: dict) -> int:
                     # file has been changed
                     log.info('file metadata changed')
                     unique_cols = ('head_revision_id', )
-                    mt = f.mime_type
                     if isinstance(lf, RemoteRegularFile) and \
                             not f.is_google_workspace_file and \
                             (remote_file_metadata[k] for k in unique_cols) != \
