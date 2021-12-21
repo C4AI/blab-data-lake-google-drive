@@ -8,7 +8,8 @@ from typing import Any
 
 from .remote import RemoteDirectory, RemoteRegularFile, \
     GoogleDriveService as GDService
-from .local import LocalStorageDatabase, LocalFile, FileToDelete
+from .local import LocalStorageDatabase, LocalFile, LocalDirectory, \
+    LocalRegularFile, LocalGoogleWorkspaceFile, LocalFileRevision
 
 
 logger = getLogger(__name__)
@@ -41,11 +42,11 @@ def cleanup(config: dict, delay: float | None = None) -> int:
     logger.debug('will delete files marked for deletion', until=until)
     db, gdservice = _db_and_gdservice(config)
     with db.new_session() as session:
-        for ftd in db.get_files_to_delete(session, until):
+        for ftd in db.get_obsolete_file_revisions(session, until):
             name = Path(config['Local']['RootPath']).resolve() / ftd.local_name
             log = logger.bind(
                 name=ftd.local_name,
-                marked_for_deletion_at=ftd.removedfromindexat)
+                marked_for_deletion_at=ftd.obsolete_since)
             try:
                 os_delete_file(name)
             except FileNotFoundError:
@@ -68,7 +69,7 @@ def sync(config: dict) -> int:
 
     Returns:
         0 if no errors occurred, 1 otherwise
-    """
+    """  # noqa: DAR401
     db, gdservice = _db_and_gdservice(config)
 
     def download(f: RemoteRegularFile) -> None:
@@ -79,8 +80,7 @@ def sync(config: dict) -> int:
     with db.new_session() as session:
 
         local_tree = db.get_tree(session)
-        local_file_by_id: dict[str, LocalFile] = local_tree.flatten() \
-            if local_tree else {}
+        local_file_by_id: dict[str, LocalFile] = local_tree.flatten()
 
         remote_tree = gdservice.get_tree()
         remote_file_by_id = remote_tree.flatten()
@@ -97,11 +97,19 @@ def sync(config: dict) -> int:
                 icon_url=f.icon_url,
                 parent_id=p.id if (p := f.parent) else None,
             )
+            remote_revision_metadata: dict[str, Any] = {}
             if isinstance(f, RemoteRegularFile):
                 remote_file_metadata.update(
-                    md5_checksum=f.md5_checksum,
+                    head_revision_id=f.head_revision_id
+                )
+                remote_revision_metadata.update(
+                    file_id=f.id,
+                    revision_id=f.head_revision_id,
+                    modified_time=f.modified_time,
+                    modified_by=f.modified_by,
+                    mime_type=f.mime_type,
                     size=f.size,
-                    head_revision_id=f.head_revision_id,
+                    md5_checksum=f.md5_checksum,
                 )
             elif isinstance(f, RemoteDirectory):
                 remote_file_metadata.update(is_root=f.is_root)
@@ -112,7 +120,21 @@ def sync(config: dict) -> int:
                     mt = f.mime_type
                     if not mt.startswith('application/vnd.google-apps'):
                         download(f)
-                new_file = LocalFile(**remote_file_metadata)
+                new_file: LocalFile
+                if isinstance(f, RemoteRegularFile):
+                    if f.is_google_workspace_file:
+                        new_file = LocalGoogleWorkspaceFile(
+                            **remote_file_metadata)
+                    else:
+                        new_file = LocalRegularFile(**remote_file_metadata)
+                        new_revision = LocalFileRevision(
+                            **remote_revision_metadata
+                        )
+                        session.add(new_revision)
+                elif isinstance(f, RemoteDirectory):
+                    new_file = LocalDirectory(**remote_file_metadata)
+                else:
+                    raise RuntimeError
                 session.add(new_file)
             else:
                 lf = local_file_by_id[id]
@@ -127,48 +149,61 @@ def sync(config: dict) -> int:
                     icon_url=f.icon_url,
                     parent_id=par.id if (par := lf.parent) else None,
                 )
-                if not lf.is_directory:
+                local_revision_metadata: dict[str, Any] = {}
+                if isinstance(lf, LocalRegularFile):
                     local_file_metadata.update(
+                        head_revision_id=lf.head_revision_id
+                    )
+                    local_revision_metadata.update(
                         md5_checksum=lf.md5_checksum,
                         size=lf.size,
-                        head_revision_id=lf.head_revision_id,
+                        revision_id=lf.head_revision_id,
                     )
-                else:
+                elif isinstance(lf, LocalGoogleWorkspaceFile):
+                    pass
+                elif isinstance(lf, LocalDirectory):
                     local_file_metadata.update(
                         is_root=lf.is_root,
                     )
+                else:
+                    raise RuntimeError
                 log = logger.bind(name=f.name, id=id)
-                if local_file_metadata == remote_file_metadata:
+                if local_file_metadata == remote_file_metadata and \
+                        local_revision_metadata == remote_revision_metadata:
                     # file is unchanged
                     log.debug('no changes in file')
                 else:
                     # file has been changed
                     log.info('file metadata changed')
-                    unique_cols = ('md5_checksum', 'head_revision_id')
+                    unique_cols = ('head_revision_id', )
                     mt = f.mime_type
-                    if isinstance(f, RemoteRegularFile) and \
+                    if isinstance(lf, RemoteRegularFile) and \
                             not f.is_google_workspace_file and \
                             (remote_file_metadata[k] for k in unique_cols) != \
                             (local_file_metadata[k] for k in unique_cols):
                         download(f)
-                        to_delete = FileToDelete(local_name=f.local_name)
-                        session.add(to_delete)
+                        session.add(LocalFileRevision(
+                            **remote_revision_metadata))
+                        lf.head_revision.obsolete_since = datetime.now()
                         log.info('old file marked for deletion')
                     for k, v in remote_file_metadata.items():
                         if (old := local_file_metadata.get(k, None)) != v:
                             log.info('file metadata changed',
                                      field=k, old_value=old, new_value=v)
                             setattr(lf, k, v)
+                    if isinstance(lf, RemoteRegularFile):
+                        for k, v in remote_revision_metadata.items():
+                            if (old := local_revision_metadata.get(k, None)) \
+                                    != v:
+                                log.info('file revision metadata changed',
+                                         field=k, old_value=old, new_value=v)
+                                setattr(lf.head_revision, k, v)
         for fid in local_file_by_id.keys() - remote_file_by_id.keys():
             lf = local_file_by_id[fid]
-            if not (lf.is_directory or lf.is_google_workspace_file):
-                d: dict[str, Any]
-                d = dict(local_name=lf.local_name, id=lf.id, name=lf.name,
-                         modified_time=lf.modified_time,
-                         size=lf.size, head_revision_id=lf.head_revision_id,
-                         md5_checksum=lf.md5_checksum, mime_type=lf.mime_type)
-                to_delete = FileToDelete(**d)
-                session.add(to_delete)
+            if isinstance(lf, LocalRegularFile):
+                t = datetime.now()
+                lf.head_revision.obsolete_since = t
+                lf.obsolete_since = t
                 log = logger.bind(name=lf.name, id=fid)
                 log.info('file (deleted on server) marked for deletion')
             session.delete(lf)

@@ -19,7 +19,7 @@ _DEFAULT_PAGE_SIZE = 100
 _FILE_FIELDS = ', '.join(['id', 'name', 'parents', 'kind', 'mimeType',
                          'webViewLink', 'md5Checksum', 'size', 'createdTime',
                           'modifiedTime', 'lastModifyingUser',
-                          'headRevisionId', 'iconLink',
+                          'headRevisionId', 'iconLink', 'capabilities'
                           ])
 
 
@@ -217,7 +217,10 @@ class RemoteDirectory(RemoteFile):
 
 @dataclass
 class RemoteRegularFile(RemoteFile):
-    """Represents a regular file stored on Google Drive."""
+    """Represents a regular file stored on Google Drive.
+
+    Includes Google Workspace files.
+    """
 
     size: int
     """File size in bytes"""
@@ -257,19 +260,25 @@ class GoogleDriveService:
     from a Google Drive directory or shared drive.
     """
 
-    def __init__(self, gd_config: dict[str, str]):
+    def __init__(self, gd_config: dict[str, str],
+                 _service: Resource | None = None):
         """
         Args:
             gd_config: service configuration
+            _service: an optional existing :class:`Resource` instance to reuse
 
         For a description of the expected keys and values of `gd_config`,
         see the section ``GoogleDrive`` in
         :download:`the documentation <../README_CONFIG.md>`.
+
+        In most cases, `_service` should be omitted and the attribute
+        :attr:`service` will be set to a fresh instance created by the
+        constructor.
         """  # noqa:D205,D400
         self.gd_config: dict[str, str] = gd_config
         """Configuration parameters"""
 
-        self.service: Resource = self.__get_service()
+        self.service: Resource = _service or self.__get_service()
         """Google Drive service."""
 
     def __get_service(self) -> Resource:

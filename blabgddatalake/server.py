@@ -6,7 +6,7 @@ from structlog import getLogger
 from sys import maxsize
 from waitress import serve as waitress_serve
 
-from .local import LocalStorageDatabase, LocalFile, FileToDelete
+from .local import LocalStorageDatabase, LocalFile, LocalRegularFile
 
 
 _logger = getLogger(__name__)
@@ -40,13 +40,13 @@ def tree(id: str | None = None) -> Response | None:
     abort(404)
 
 
-@app.route("/download/<id>/<head_revision_id>", methods=['GET'])
-def file(id: str, head_revision_id: str) -> Response | None:
+@app.route("/download/<id>/<revision_id>", methods=['GET'])
+def file(id: str, revision_id: str) -> Response | None:
     """Return the contents of a file.
 
     Args:
         id: file id
-        head_revision_id: id of the current file version
+        revision_id: id of the current file revision
 
     Returns:
         the file contents
@@ -55,15 +55,17 @@ def file(id: str, head_revision_id: str) -> Response | None:
     db = LocalStorageDatabase(config['Database'])
     log = _logger.bind(id=id)
     with db.new_session() as session:
-        f: LocalFile | FileToDelete | None
+        f: LocalFile | None
         f = db.get_file_by_id(session, id)
         log.info('requested file download', found=bool(f))
-        if not f:
-            f = db.get_file_to_delete(session, id, head_revision_id)
-        if not f or isinstance(f, LocalFile) and f.is_directory:
+        if not isinstance(f, LocalRegularFile):
+            abort(404)
+        try:
+            rev = next(r for r in f.revisions if r.revision_id == revision_id)
+        except StopIteration:
             abort(404)
         directory = Path(config['Local']['RootPath'])
-        fn = directory.resolve() / f.local_name
+        fn = directory.resolve() / rev.local_name
         log.info('sending file contents', local_name=fn)
         try:
             return send_file(fn, mimetype=f.mime_type,
