@@ -1,4 +1,4 @@
-"""A module that interacts with Google Drive API."""
+"""Interacts with Google Drive API, downloads files and their metadata."""
 
 from __future__ import annotations
 

@@ -1,4 +1,4 @@
-"""A module that deals with local copies of Google Drive files and metadata."""
+"""Deals with local copies of Google Drive files and their metadata."""
 
 from __future__ import annotations
 
