@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""This script just calls :module:`blabgddatalake`."""
 
 from pathlib import Path
 import sys

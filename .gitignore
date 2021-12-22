@@ -3,7 +3,7 @@ blab-*-settings.cfg
 docs/*.rst
 !docs/index.rst
 
-
+.vscode/
 
 
 # Byte-compiled / optimized / DLL files

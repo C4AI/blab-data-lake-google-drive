@@ -1,4 +1,8 @@
 #!/usr/bin/env python3
+"""Allows running the program as a module.
+
+``python -m blabgddatalake <command> <arguments>``
+"""
 
 import argparse
 import configparser
@@ -15,6 +19,17 @@ from .sync import sync, cleanup
 
 def read_settings(fn: str = 'blab-data-lake-settings.cfg') \
         -> configparser.ConfigParser:
+    """Read settings from a configuration file.
+
+    See :download:`the documentation <../README_CONFIG.md>` about the
+    fields.
+
+    Args:
+        fn: name of the configuration file
+
+    Returns:
+        parsed configuration
+    """
     config = configparser.ConfigParser()
     config.optionxform = str  # type: ignore  # do not convert to lower-case
     config.read(fn)
@@ -22,9 +37,15 @@ def read_settings(fn: str = 'blab-data-lake-settings.cfg') \
 
 
 def parse_args(args: list[str]) -> argparse.Namespace:
+    """Parse command-line arguments.
 
+    Args:
+        args: the arguments to parse
+
+    Returns:
+        the parsed arguments
+    """
     parser = argparse.ArgumentParser()
-
     verbosity = parser.add_mutually_exclusive_group()
     verbosity.add_argument(
         '--debug', '-d',
@@ -80,6 +101,15 @@ def parse_args(args: list[str]) -> argparse.Namespace:
 
 
 def setup_logger(level: int) -> None:
+    """Define the logging level.
+
+    The root logger level is always set to :attr:`logging.INFO`. The provided
+    level defines only the minimum level of the log messages emitted by
+    this program, not its dependencies.
+
+    Args:
+        level: the logger level
+    """
     from sys import stdout
     logging.basicConfig(level=logging.INFO, format="%(message)s",
                         stream=stdout,)
