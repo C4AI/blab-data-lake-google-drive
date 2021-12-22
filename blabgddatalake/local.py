@@ -111,6 +111,7 @@ class LocalFile(Base):
             print(' ┃ ' if p else '   ', end=' ')
         if _pfx:
             print(' ┠─' if _pfx[-1] else ' ┖─', end=' ')
+        print(self.name)
 
     @property
     def virtual_path(self) -> list[str]:
