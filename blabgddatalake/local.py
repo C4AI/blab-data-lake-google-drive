@@ -101,7 +101,7 @@ class LocalFile(Base):
     }
 
     def __repr__(self) -> str:
-        return '(name={}, gdid={})'.format(self.name, self.gdfile_id)
+        return f'(name={self.name}, gdid={self.gdfile_id})'
 
     def print_tree(self, _pfx: list[bool] | None = None) -> None:
         """Print the tree file names to standard output (for debugging)."""
@@ -226,10 +226,10 @@ class LocalDirectory(LocalFile):
         'polymorphic_identity': 'directory'
     }
 
-    _children: list['LocalFile']
+    _children: list[LocalFile]
 
     @property
-    def children(self) -> list['LocalFile'] | None:
+    def children(self) -> list[LocalFile] | None:
         """Subdirectories and regular files in this directory.
 
         Returns:
@@ -243,7 +243,7 @@ class LocalDirectory(LocalFile):
         Returns:
             a flat dictionary where files are mapped by their ids
         """
-        d: dict[str, 'LocalFile'] = {self.id: self}
+        d: dict[str, LocalFile] = {self.id: self}
         for c in self.children or []:
             d.update(c.flatten() if isinstance(c, LocalDirectory)
                      else {c.id: c})
