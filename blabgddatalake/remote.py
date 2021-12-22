@@ -8,7 +8,9 @@ from datetime import datetime
 from google.oauth2 import service_account
 from googleapiclient.http import MediaIoBaseDownload
 from googleapiclient.discovery import build, Resource
+from hashlib import md5
 from overrides import overrides
+from pathlib import Path
 from structlog import getLogger
 
 
@@ -63,29 +65,6 @@ class RemoteFile:
         if _pfx:
             print(' ┠─' if _pfx[-1] else ' ┖─', end=' ')
         print(self.name)
-
-    def download(self, service: Resource, file_name: str) -> bool:
-        """Download the file.
-
-        Args:
-            service: Google Drive service
-                (see :attr:`GoogleDriveService.service`)
-            file_name: local file name to store the contents
-
-        Returns:
-            whether the download completed successfully
-        """
-        log = _logger.bind(id=self.id, name=self.name, local_name=file_name)
-        log.info('downloading file')
-        with open(file_name, 'wb') as fd:
-            request = service.files().get_media(
-                fileId=self.id,
-            )
-            downloader = MediaIoBaseDownload(fd, request)
-            completed = False
-            while not completed:
-                status, completed = downloader.next_chunk()
-        return True
 
 
 @dataclass
@@ -252,6 +231,56 @@ class RemoteRegularFile(RemoteFile):
         """
         return self.mime_type.startswith('application/vnd.google-apps')
 
+    @classmethod
+    def _md5(cls, fn: str) -> str:
+        hash = md5()
+        with open(fn, 'rb') as fd:
+            for chunk_4k in iter(lambda: fd.read(4096), b''):
+                hash.update(chunk_4k)
+        return hash.hexdigest()
+
+    def download(self, service: Resource, file_name: str,
+                 skip_if_size_matches: bool = True,
+                 also_check_md5: bool = False) -> bool | None:
+        """Download the file.
+
+        Args:
+            service: Google Drive service
+                (see :attr:`GoogleDriveService.service`)
+            file_name: local file name to store the contents
+            skip_if_size_matches: do not download if file already exists
+                and its size matches the expected value
+            also_check_md5: in addition to the size, also check file hash
+                and only skip the download if it matches
+
+        Returns:
+            ``True`` if the download completed successfully,
+            ``False`` if some error occurred and
+            ``None`` if download was skipped because the file already existed
+        """
+        log = _logger.bind(id=self.id, name=self.name, local_name=file_name)
+
+        if skip_if_size_matches:
+            p = Path(file_name)
+            if p.is_file() and p.stat().st_size == self.size:
+                if not also_check_md5:
+                    log.info('skipping download, size matches', size=self.size)
+                    return None
+                if self._md5(file_name) == self.md5_checksum:
+                    log.info('skipping download, size and hash match',
+                             size=self.size, md5_checksum=self.md5_checksum)
+                    return None
+        log.info('downloading file')
+        with open(file_name, 'wb') as fd:
+            request = service.files().get_media(
+                fileId=self.id,
+            )
+            downloader = MediaIoBaseDownload(fd, request)
+            completed = False
+            while not completed:
+                status, completed = downloader.next_chunk()
+        return True
+
 
 class GoogleDriveService:
     """A class that wraps Google Drive API consumer to get the directory tree.
@@ -299,11 +328,23 @@ class GoogleDriveService:
         """
         return RemoteDirectory.get_tree(self.service, self.gd_config)
 
-    def download_file(self, file: RemoteRegularFile, output_file: str) -> None:
+    def download_file(self, file: RemoteRegularFile, output_file: str,
+                      skip_if_size_matches: bool = True,
+                      also_check_md5: bool = False) -> bool | None:
         """Download a file from Google Drive.
 
         Args:
             file: the file to download
             output_file: local file where the contents will be saved
+            skip_if_size_matches: do not download if file already exists
+                and its size matches the expected value
+            also_check_md5: in addition to the size, also check file hash
+                and only skip the download if it matches
+
+        Returns:
+            ``True`` if the download completed successfully,
+            ``False`` if some error occurred and
+            ``None`` if download was skipped because the file already existed
         """
-        file.download(self.service, output_file)
+        return file.download(self.service, output_file,
+                             skip_if_size_matches, also_check_md5)

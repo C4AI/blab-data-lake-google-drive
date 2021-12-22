@@ -72,10 +72,10 @@ def sync(config: dict) -> int:
     """  # noqa: DAR401
     db, gdservice = _db_and_gdservice(config)
 
-    def download(f: RemoteRegularFile) -> None:
+    def download(f: RemoteRegularFile) -> bool | None:
         directory = Path(config['Local']['RootPath'])
         fn = directory.resolve() / f.local_name
-        gdservice.download_file(f, str(fn))
+        return gdservice.download_file(f, str(fn))
 
     with db.new_session() as session:
 
@@ -178,13 +178,15 @@ def sync(config: dict) -> int:
                     # file is unchanged
                     log.debug('no changes in file')
                 else:
-                    # file has been changed
+                    # file metadata has been changed
                     log.info('file metadata changed')
                     unique_cols = ('head_revision_id', )
-                    if isinstance(lf, RemoteRegularFile) and \
+                    if isinstance(f, RemoteRegularFile) and \
                             not f.is_google_workspace_file and \
+                            isinstance(lf, LocalRegularFile) and \
                             (remote_file_metadata[k] for k in unique_cols) != \
                             (local_file_metadata[k] for k in unique_cols):
+                        # file contents have been changed
                         download(f)
                         session.add(LocalFileRevision(
                             **remote_revision_metadata))
