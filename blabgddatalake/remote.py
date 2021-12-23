@@ -5,6 +5,7 @@ from __future__ import annotations
 from dateutil import parser as timestamp_parser
 from dataclasses import dataclass, field
 from datetime import datetime
+from functools import lru_cache
 from google.oauth2 import service_account
 from googleapiclient.http import MediaIoBaseDownload
 from googleapiclient.discovery import build, Resource
@@ -55,6 +56,15 @@ class RemoteFile:
 
     parent: RemoteDirectory | None
     """Parent directory"""
+
+    @property
+    def parent_id(self) -> str | None:
+        """Id of the parent directory.
+
+        Returns:
+            The id of the parent directory, or ``None`` if this is the root
+        """
+        return p.id if (p := self.parent) is not None else None
 
     def print_tree(self, _pfx: list[bool] | None = None) -> None:
         """Print the tree file names to standard output (for debugging)."""
@@ -128,6 +138,7 @@ class RemoteDirectory(RemoteFile):
                     f.get('md5Checksum', None),
                     f.get('headRevisionId', None),
                     f.get('capabilities', {}).get('canDownload', False),
+                    f.get('capabilities', {}).get('canExport', False),
                 ]
                 node = RemoteRegularFile(*metadata, *file_metadata)
             self.children.append(node)
@@ -213,6 +224,9 @@ class RemoteRegularFile(RemoteFile):
 
     can_download: bool
     """Whether the file can be downloaded"""
+
+    can_export: list[str]
+    """List of the formats to which the file can be exported (may be empty)"""
 
     @property
     def local_name(self) -> str:
@@ -331,6 +345,17 @@ class GoogleDriveService:
             by the ``SubTreeRootId`` field of :attr:`gd_config`.
         """
         return RemoteDirectory.get_tree(self.service, self.gd_config)
+
+    @lru_cache(maxsize=1)
+    def export_formats(self) -> dict[str, list[str]]:
+        """Get the supported formats to export Google Workspace files.
+
+        Returns:
+            A dictionary mapping Google Workspace file MIME types to
+            a list of the MIME types of the formats they can be exported to
+        """
+        request = self.service.about().get(fields='exportFormats')
+        return request.execute()
 
     def download_file(self, file: RemoteRegularFile, output_file: str,
                       skip_if_size_matches: bool = True,

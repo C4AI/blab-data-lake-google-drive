@@ -16,7 +16,7 @@ class ExportFormat:
 
 _ms_office_pfx = 'application/vnd.openxmlformats-officedocument.'
 
-known_export_formats: dict[str, str] = {
+gw_mime_type_to_extension: dict[str, str] = {
     'application/epub+zip': 'epub',
     'application/pdf': 'pdf',
     'application/rtf': 'rtf',
@@ -28,12 +28,12 @@ known_export_formats: dict[str, str] = {
     _ms_office_pfx + 'spreadsheetml.sheet': 'xlsx',
     _ms_office_pfx + 'wordprocessingml.document': 'docx',
     'application/x-vnd.oasis.opendocument.spreadsheet': 'ots',
-    'application/zip': 'zip',
+    'application/zip': 'html.zip',
     'image/jpeg': 'jpg',
     'image/png': 'png',
     'image/svg+xml': 'svg',
     'text/csv': 'csv',
-    'text/html': 'htm',
+    'text/html': 'html',
     'text/plain': 'txt',
     'text/tab-separated-values': 'tsv',
 }
@@ -45,4 +45,10 @@ and in both cases the exported ZIP file is a collection of HTML files (see
 the complete list
 `here <https://developers.google.com/drive/api/v3/ref-export-formats>`_);
 therefore, the double extension ``html.zip`` is appropriate.
+"""
+
+gw_extension_to_mime_type = {v: k
+                             for k, v in gw_mime_type_to_extension.items()}
+"""
+Maps extensions to their MIME types.
 """
