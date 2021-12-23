@@ -106,6 +106,7 @@ def sync(config: dict) -> int:
                     )
                     remote_revision_metadata.update(
                         file_id=f.id,
+                        name=f.name,
                         revision_id=f.head_revision_id,
                         modified_time=f.modified_time,
                         modified_by=f.modified_by,
@@ -157,6 +158,7 @@ def sync(config: dict) -> int:
                     )
                     local_revision_metadata.update(
                         md5_checksum=lf.md5_checksum,
+                        name=lf.name,
                         size=lf.size,
                         revision_id=lf.head_revision_id,
                         modified_time=lf.modified_time,
