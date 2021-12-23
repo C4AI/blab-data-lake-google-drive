@@ -85,14 +85,14 @@ def parse_args(args: list[str]) -> argparse.Namespace:
         'cleanup',
         help='delete local files that have been deleted or overwritten ' +
         'on Google Drive')
-    parser_cleanup = subparsers.add_parser(
-        'printlocal',
-        help='display a tree of the files downloaded from Google Drive')
-    parser_cleanup = subparsers.add_parser(
-        'printremote',
-        help='display a tree of the files available on Google Drive')
     parser_cleanup.add_argument(
         '--delay', help='deletion delay', type=non_negative_float)
+    subparsers.add_parser(
+        'printlocal',
+        help='display a tree of the files downloaded from Google Drive')
+    subparsers.add_parser(
+        'printremote',
+        help='display a tree of the files available on Google Drive')
     parser_runserver = subparsers.add_parser('serve', help='start server')
     parser_runserver.add_argument(
         '--port', '-p', help='server port', type=port)
