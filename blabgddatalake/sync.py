@@ -4,7 +4,7 @@ from datetime import datetime, timedelta
 from os import remove as os_delete_file
 from pathlib import Path
 from structlog import getLogger
-from typing import Any
+from typing import Any, cast
 
 from .remote import RemoteDirectory, RemoteRegularFile, \
     GoogleDriveService as GDService
@@ -12,7 +12,7 @@ from .local import LocalStorageDatabase, LocalFile, LocalDirectory, \
     LocalRegularFile, LocalGoogleWorkspaceFile, LocalFileRevision
 
 
-logger = getLogger(__name__)
+_logger = getLogger(__name__)
 
 
 def _db_and_gdservice(config: dict) -> tuple[LocalStorageDatabase, GDService]:
@@ -39,12 +39,12 @@ def cleanup(config: dict, delay: float | None = None) -> int:
         until -= timedelta(seconds=delay)
     elif (d := config['Local'].get('DeletionDelay', None)) is not None:
         until -= timedelta(seconds=float(d))
-    logger.debug('will delete files marked for deletion', until=until)
+    _logger.debug('will delete files marked for deletion', until=until)
     db, gdservice = _db_and_gdservice(config)
     with db.new_session() as session:
         for ftd in db.get_obsolete_file_revisions(session, until):
             name = Path(config['Local']['RootPath']).resolve() / ftd.local_name
-            log = logger.bind(
+            log = _logger.bind(
                 name=ftd.local_name,
                 marked_for_deletion_at=ftd.obsolete_since)
             try:
@@ -113,15 +113,20 @@ def sync(config: dict) -> int:
                         mime_type=f.mime_type,
                         size=f.size,
                         md5_checksum=f.md5_checksum,
+                        can_download=f.can_download,
                     )
             elif isinstance(f, RemoteDirectory):
                 remote_file_metadata.update(is_root=f.is_root)
 
             if id not in local_file_by_id:
                 # file is new
-                if isinstance(f, RemoteRegularFile):
-                    if not f.is_google_workspace_file:
+                if isinstance(f, RemoteRegularFile) and \
+                        not f.is_google_workspace_file:
+                    if f.can_download:
                         download(f)
+                    else:
+                        _logger.info('skipping non-downloadable file',
+                                     id=f.id, name=f.name)
                 new_file: LocalFile
                 if isinstance(f, RemoteRegularFile):
                     if f.is_google_workspace_file:
@@ -165,6 +170,7 @@ def sync(config: dict) -> int:
                         modified_by=lf.modified_by,
                         mime_type=lf.mime_type,
                         file_id=lf.id,
+                        can_download=cast(RemoteRegularFile, f).can_download,
                     )
                 elif isinstance(lf, LocalGoogleWorkspaceFile):
                     pass
@@ -174,7 +180,7 @@ def sync(config: dict) -> int:
                     )
                 else:
                     raise RuntimeError
-                log = logger.bind(name=f.name, id=id)
+                log = _logger.bind(name=f.name, id=id)
                 if local_file_metadata == remote_file_metadata and \
                         local_revision_metadata == remote_revision_metadata:
                     # file is unchanged
@@ -189,7 +195,11 @@ def sync(config: dict) -> int:
                             (remote_file_metadata[k] for k in unique_cols) != \
                             (local_file_metadata[k] for k in unique_cols):
                         # file contents have been changed
-                        download(f)
+                        if f.can_download:
+                            download(f)
+                        else:
+                            _logger.info('skipping non-downloadable file',
+                                         id=f.id, name=f.name)
                         session.add(LocalFileRevision(
                             **remote_revision_metadata))
                         lf.head_revision.obsolete_since = datetime.now()
@@ -212,7 +222,7 @@ def sync(config: dict) -> int:
                 t = datetime.now()
                 lf.head_revision.obsolete_since = t
                 lf.obsolete_since = t
-                log = logger.bind(name=lf.name, id=fid)
+                log = _logger.bind(name=lf.name, id=fid)
                 log.info('file (deleted on server) marked for deletion')
             session.delete(lf)
         session.commit()
