@@ -152,7 +152,7 @@ class LocalRegularFile(LocalFile):
     """
 
     @property
-    def md5_checksum(self) -> str | None:
+    def md5_checksum(self) -> str:
         """File hash.
 
         Returns:
@@ -172,7 +172,7 @@ class LocalRegularFile(LocalFile):
             '_' + (self.md5_checksum or '')
 
     @property
-    def size(self) -> int | None:
+    def size(self) -> int:
         """Size in bytes.
 
         Returns:
@@ -302,7 +302,7 @@ class LocalFileRevision(Base):
     mime_type: str | None = Column(String)
     """MIME type"""
 
-    size: int | None = Column(BigInteger)
+    size: int = Column(BigInteger)
     """File size in bytes"""
 
     md5_checksum: str = Column(String)
