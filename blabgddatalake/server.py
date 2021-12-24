@@ -6,7 +6,9 @@ from structlog import getLogger
 from sys import maxsize
 from waitress import serve as waitress_serve
 
-from .local import LocalStorageDatabase, LocalFile, LocalRegularFile
+from .formats import ExportFormat
+from .local import LocalStorageDatabase, LocalFile, LocalRegularFile,\
+    LocalGoogleWorkspaceFile
 
 
 _logger = getLogger(__name__)
@@ -40,13 +42,17 @@ def tree(id: str | None = None) -> Response | None:
     abort(404)
 
 
+@app.route("/download/<id>", methods=['GET'])
 @app.route("/download/<id>/<revision_id>", methods=['GET'])
-def file(id: str, revision_id: str) -> Response | None:
+def download(id: str, revision_id: str | None = None) -> Response | None:
     """Return the contents of a file.
+
+    This function does not apply to Google Workspace files,
+    which can be downloaded by :fun:`export` instead.
 
     Args:
         id: file id
-        revision_id: id of the current file revision
+        revision_id: id of the file revision (if omitted, get latest version)
 
     Returns:
         the file contents
@@ -59,11 +65,13 @@ def file(id: str, revision_id: str) -> Response | None:
         f = db.get_file_by_id(session, id)
         log.info('requested file download', found=bool(f))
         if not isinstance(f, LocalRegularFile):
-            return Response(status=404)
+            abort(404)
+        if not revision_id:
+            revision_id = f.head_revision_id
         try:
             rev = next(r for r in f.revisions if r.revision_id == revision_id)
         except StopIteration:
-            return Response(status=404)
+            abort(404)
         directory = Path(config['Local']['RootPath'])
         fn = directory.resolve() / rev.local_name
         log.info('sending file contents', local_name=fn)
@@ -74,7 +82,55 @@ def file(id: str, revision_id: str) -> Response | None:
                              as_attachment=True)
         except FileNotFoundError:
             # should not happen
-            return Response(status=503)
+            abort(503)
+
+
+@app.route("/export/<id>", methods=['GET'])
+def export(id: str) -> Response | None:
+    """Return the exported contents of a file.
+
+    This function only applies to Google Workspace files. Other files
+    can be downloaded by :fun:`download` instead.
+
+    Query args:
+        extension: file extension (**must** be one of the extensions listed
+            by :fun:`tree` for this file)
+
+    Args:
+        id: file id
+
+    Returns:
+        the file contents
+    """
+    extension = request.args.get('extension', '', type=str)
+    if not extension:
+        abort(400)
+    config = app.config['options']
+    db = LocalStorageDatabase(config['Database'])
+    log = _logger.bind(id=id)
+    with db.new_session() as session:
+        f: LocalFile | None
+        f = db.get_file_by_id(session, id)
+        log.info('requested file export', found=bool(f))
+        if not isinstance(f, LocalGoogleWorkspaceFile):
+            abort(404)
+        ver = f.head_version
+
+        directory = Path(config['Local']['RootPath'])
+        try:
+            fn = directory.resolve() / ver.local_names[extension]
+        except KeyError:
+            abort(400)  # extension is unavailable
+        log.info('sending exported file contents', local_name=fn)
+        try:
+            mt = ExportFormat.from_extension(extension).mime_type
+            return send_file(fn, mimetype=mt,
+                             download_name=f.name + '.' + extension,
+                             last_modified=f.modified_time,
+                             as_attachment=True)
+        except FileNotFoundError:
+            # should not happen
+            abort(503)
 
 
 def serve(config: dict, port: int | None) -> int:

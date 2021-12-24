@@ -26,6 +26,7 @@ flake8-docstrings = "*"
 flake8-annotations = "*"
 types-waitress = "*"
 types-python-dateutil = "*"
+types-Werkzeug = "*"
 pyupgrade = "*"
 python-lsp-server = {extras = ["all"], version = "*"}
 darglint = "*"

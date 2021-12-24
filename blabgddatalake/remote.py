@@ -14,6 +14,7 @@ from overrides import overrides
 from pathlib import Path
 from structlog import getLogger
 
+from .formats import ExportFormat
 
 _logger = getLogger(__name__)
 
@@ -88,8 +89,9 @@ class RemoteDirectory(RemoteFile):
     """Whether this directory is the root specified in the settings
         (not necessarily the root on Google Drive)"""
 
-    def _fill_children(self, service: Resource,
+    def _fill_children(self, gdservice: GoogleDriveService,
                        gd_config: dict[str, str]) -> None:
+        service = gdservice.service
         q_items = ['not trashed']
         if self.id:
             q_items.append(f"'{self.id}' in parents")
@@ -131,34 +133,37 @@ class RemoteDirectory(RemoteFile):
             node: RemoteFile
             if f['mimeType'] == 'application/vnd.google-apps.folder':
                 node = RemoteDirectory(*metadata)
-                node._fill_children(service, gd_config)
+                node._fill_children(gdservice, gd_config)
             else:
+                export_extensions = list(map(
+                    lambda fmt: fmt.extension, gdservice.export_formats().get(
+                        f['mimeType'], [])))
                 file_metadata = [
                     int(s) if (s := f.get('size', None)) is not None else None,
                     f.get('md5Checksum', None),
                     f.get('headRevisionId', None),
                     f.get('capabilities', {}).get('canDownload', False),
-                    f.get('capabilities', {}).get('canExport', False),
+                    export_extensions
                 ]
                 node = RemoteRegularFile(*metadata, *file_metadata)
             self.children.append(node)
 
     @classmethod
-    def get_tree(cls, service: Resource, gd_config: dict[str, str]
+    def get_tree(cls, gdservice: GoogleDriveService, gd_config: dict[str, str]
                  ) -> RemoteDirectory:
         """Fetch and return the directory tree from Google Drive.
 
         There is no depth limit.
 
         Args:
-            service: Google Drive service
-                (see :attr:`GoogleDriveService.service`)
+            gdservice: Google Drive service
             gd_config: configuration parameters
 
         Returns:
             an object representing the root directory defined
             by the ``SubTreeRootId`` field of `gd_config`.
         """
+        service = gdservice.service
         this_id = gd_config.get('SubTreeRootId', None) or \
             gd_config.get('SharedDriveId', None)
         shared_drive_id = gd_config.get('SharedDriveId', None)
@@ -180,7 +185,7 @@ class RemoteDirectory(RemoteFile):
         else:
             metadata = ['', None, None, None, None, None, None]
         root = RemoteDirectory(*metadata, is_root=True)  # type: ignore
-        root._fill_children(service, gd_config)
+        root._fill_children(gdservice, gd_config)
         return root
 
     def flatten(self) -> dict[str, RemoteFile]:
@@ -225,19 +230,25 @@ class RemoteRegularFile(RemoteFile):
     can_download: bool
     """Whether the file can be downloaded"""
 
-    can_export: list[str]
-    """List of the formats to which the file can be exported (may be empty)"""
+    export_extensions: list[str] | None = None
+    """Formats to which a Google Workspace file can be exported"""
 
     @property
     def local_name(self) -> str:
         """Local file name (without path).
 
+        For Google Workspace files, extension is not included.
+
         Returns:
             Local file name
         """
-        return self.id + \
-            '_' + (self.head_revision_id or '') + \
-            '_' + (self.md5_checksum or '')
+        if self.is_google_workspace_file:
+            return self.id + '_' + \
+                self.modified_time.strftime('%Y%m%d_%H%M%S%f')
+        else:
+            return self.id + \
+                '_' + (self.head_revision_id or '') + \
+                '_' + (self.md5_checksum or '')
 
     @property
     def is_google_workspace_file(self) -> bool:
@@ -257,25 +268,30 @@ class RemoteRegularFile(RemoteFile):
                 hash.update(chunk_4k)
         return hash.hexdigest()
 
-    def download(self, service: Resource, file_name: str,
+    def download(self, gdservice: Resource, file_name: str,
                  skip_if_size_matches: bool = True,
                  also_check_md5: bool = False) -> bool | None:
         """Download the file.
 
         Args:
-            service: Google Drive service
-                (see :attr:`GoogleDriveService.service`)
+            gdservice: Google Drive service
             file_name: local file name to store the contents
             skip_if_size_matches: do not download if file already exists
                 and its size matches the expected value
             also_check_md5: in addition to the size, also check file hash
                 and only skip the download if it matches
 
+        This method does not apply to Google Workspace files.
+
         Returns:
             ``True`` if the download completed successfully,
             ``False`` if some error occurred and
             ``None`` if download was skipped because the file already existed
         """
+        if self.is_google_workspace_file:
+            return False
+
+        service = gdservice.service
         log = _logger.bind(id=self.id, name=self.name, local_name=file_name)
 
         if skip_if_size_matches:
@@ -297,6 +313,45 @@ class RemoteRegularFile(RemoteFile):
             completed = False
             while not completed:
                 status, completed = downloader.next_chunk()
+        return True
+
+    def export(self, gdservice: GoogleDriveService,
+               formats: list[ExportFormat],
+               file_name_without_extension: str) -> bool | None:
+        """Download exported versions of the file.
+
+        Args:
+            gdservice: Google Drive service
+            formats: list of formats
+            file_name_without_extension: local file name without extension
+                to store the contents
+
+        This method only applies to to Google Workspace files.
+
+        Returns:
+            ``True`` if the download completed successfully,
+            ``False`` if some error occurred and
+            ``None`` if download was skipped because the file already existed
+        """
+        if not self.is_google_workspace_file:
+            return False
+
+        service = gdservice.service
+        log = _logger.bind(id=self.id, name=self.name,
+                           local_name_without_ext=file_name_without_extension)
+
+        log.info('downloading exported file')
+        for fmt in formats:
+            file_name = file_name_without_extension + '.' + fmt.extension
+            with open(file_name, 'wb') as fd:
+                request = service.files().export(
+                    fileId=self.id,
+                    mimeType=fmt.mime_type,
+                )
+                downloader = MediaIoBaseDownload(fd, request)
+                completed = False
+                while not completed:
+                    status, completed = downloader.next_chunk()
         return True
 
 
@@ -344,23 +399,28 @@ class GoogleDriveService:
             an object representing the root directory defined
             by the ``SubTreeRootId`` field of :attr:`gd_config`.
         """
-        return RemoteDirectory.get_tree(self.service, self.gd_config)
+        return RemoteDirectory.get_tree(self, self.gd_config)
 
     @lru_cache(maxsize=1)
-    def export_formats(self) -> dict[str, list[str]]:
+    def export_formats(self) -> dict[str, list[ExportFormat]]:
         """Get the supported formats to export Google Workspace files.
 
         Returns:
             A dictionary mapping Google Workspace file MIME types to
-            a list of the MIME types of the formats they can be exported to
+            the list of formats they can be exported to
         """
         request = self.service.about().get(fields='exportFormats')
-        return request.execute()
+        result = request.execute()
+        return {k: list(map(
+            lambda mt: ExportFormat.from_mime_type(mt), v))
+            for k, v in result['exportFormats'].items()}
 
     def download_file(self, file: RemoteRegularFile, output_file: str,
                       skip_if_size_matches: bool = True,
                       also_check_md5: bool = False) -> bool | None:
         """Download a file from Google Drive.
+
+        This method does not apply to Google Workspace files.
 
         Args:
             file: the file to download
@@ -375,5 +435,24 @@ class GoogleDriveService:
             ``False`` if some error occurred and
             ``None`` if download was skipped because the file already existed
         """
-        return file.download(self.service, output_file,
+        return file.download(self, output_file,
                              skip_if_size_matches, also_check_md5)
+
+    def export_file(self, file: RemoteRegularFile, formats: list[ExportFormat],
+                    output_file_without_extension: str) -> bool | None:
+        """Download a file exported from Google Drive.
+
+        This method only applies to Google Workspace files.
+
+        Args:
+            file: the file to download
+            formats: list of formats
+            output_file_without_extension: local file where the contents
+                will be saved
+
+        Returns:
+            ``True`` if the download completed successfully,
+            ``False`` if some error occurred and
+            ``None`` if download was skipped because the file already existed
+        """
+        return file.export(self, formats, output_file_without_extension)
