@@ -93,6 +93,7 @@ class LocalFile(Base):
         'LocalDirectory',
         backref=backref('_children'), remote_side=[id]
     )
+    """Parent directory, or ``None`` if this is the root"""
 
     modified_time: datetime = Column(_TimestampWithTZ())
     """Last modification timestamp"""
@@ -104,8 +105,13 @@ class LocalFile(Base):
     """MIME type"""
 
     obsolete_since: datetime = Column(_TimestampWithTZ(), nullable=True)
+    """Instant when the deletion of the file was detected
+
+    It is ``None`` for files that have not been deleted.
+    """
 
     type: str = Column(String)
+    """Used internally to identify the file type."""
 
     __mapper_args__ = {
         'polymorphic_on': type,
@@ -211,6 +217,7 @@ class LocalRegularFile(LocalFile):
         'LocalFileRevision', uselist=False,
         foreign_keys=[LocalFile.id, head_revision_id]
     )
+    """Current revision"""
 
     _revisions: list[LocalFileRevision]
 
@@ -254,6 +261,7 @@ class LocalGoogleWorkspaceFile(LocalFile):
             LocalGoogleWorkspaceFile.modified_time,
         )'''.strip())
     )
+    """Current version"""
 
     @property
     def can_export(self) -> bool:
@@ -346,6 +354,7 @@ class LocalFileRevision(Base):
         foreign_keys=[file_id],
         backref=backref('_revisions')
     )
+    """File this revision belongs to"""
 
     name: str = Column(String)
     """File name (without directory)"""
@@ -381,6 +390,10 @@ class LocalFileRevision(Base):
         return self.file_id + '_' + self.revision_id + '_' + self.md5_checksum
 
     obsolete_since: datetime = Column(_TimestampWithTZ(), nullable=True)
+    """Instant when the deletion of the file was detected
+
+    It is ``None`` for files that have not been deleted.
+    """
 
     __table_args__ = (UniqueConstraint('file_id', 'revision_id',
                       name='_file_revision_unique'),
@@ -403,6 +416,7 @@ class LocalExportedGWFileVersion(Base):
         foreign_keys=[file_id],
         backref=backref('_versions')
     )
+    """File this version belongs to"""
 
     name: str = Column(String)
     """File name (without directory)"""
@@ -444,6 +458,10 @@ class LocalExportedGWFileVersion(Base):
                 for ext in self.extensions}
 
     obsolete_since: datetime = Column(_TimestampWithTZ(), nullable=True)
+    """Instant when the deletion of the file was detected
+
+    It is ``None`` for files that have not been deleted.
+    """
 
     __table_args__ = (UniqueConstraint('file_id', 'modified_time',
                       name='_gw_file_version_unique'),

@@ -13,6 +13,8 @@
 - `Retries`: number of times to retry in case
     the requests fail (0 by default; see argument `num_retries` on
     [Google API Client Library documentation](https://googleapis.github.io/google-api-python-client/docs/epy/googleapiclient.http.HttpRequest-class.html#execute)).
+- `Retries` (optional, defaults to 0): number of times to retry
+    in case the requests fail
 - `PageSize` (optional, defaults to 100): maximum number of
     files and folders retrieved per request
 
