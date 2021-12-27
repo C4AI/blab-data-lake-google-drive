@@ -10,6 +10,7 @@ from google.oauth2 import service_account
 from googleapiclient.http import MediaIoBaseDownload
 from googleapiclient.discovery import build, Resource
 from hashlib import md5
+from httplib2 import Http
 from overrides import overrides
 from pathlib import Path
 from structlog import getLogger
@@ -365,11 +366,15 @@ class GoogleDriveService:
     """
 
     def __init__(self, gd_config: dict[str, str],
+                 _http: Http | None = None,
                  _service: Resource | None = None):
         """
         Args:
             gd_config: service configuration
             _service: an optional existing :class:`Resource` instance to reuse
+                (usually should be `None` except for testing purposes)
+            _http: used to make HTTP requests (usually should be `None`
+                except for testing purposes)
 
         For a description of the expected keys and values of `gd_config`,
         see the section ``GoogleDrive`` in
@@ -385,7 +390,7 @@ class GoogleDriveService:
         self.service: Resource = _service or self.__get_service()
         """Google Drive service."""
 
-    def __get_service(self) -> Resource:
+    def __get_service(self, _http: Http | None = None) -> Resource:
         scopes = ['https://www.googleapis.com/auth/drive']
         cred = service_account.Credentials.from_service_account_file(
             self.gd_config['ServiceAccountKeyFileName'], scopes=scopes)
