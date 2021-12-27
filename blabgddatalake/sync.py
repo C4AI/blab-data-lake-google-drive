@@ -8,8 +8,7 @@ from sqlalchemy.orm import Session
 from structlog import getLogger
 from typing import Any, cast
 
-import re
-
+from .config import Config
 from .formats import ExportFormat
 from .remote import RemoteDirectory, RemoteRegularFile, RemoteFile, \
     GoogleDriveService as GDService
@@ -24,24 +23,26 @@ _logger = getLogger(__name__)
 class GoogleDriveSync:
     """A class that provides useful methods to sync files from Google Drive."""
 
-    def __init__(self, config: dict):
-        """Pass to the constructor the configuration parameters.
-
+    def __init__(self, config: Config, _gdservice: GDService | None = None):
+        """
         Args:
             config: configuration parameters
-                (see :download:`the documentation <../README_CONFIG.md>`)
-        """
+            _gdservice: a :class:`GoogleDriveService`
+                instance to use (if omitted,
+                a new instance is created based on the configuration
+                parameters)
+        """  # noqa:D205,D400
         self.config = config
-        self.db = LocalStorageDatabase(config['Database'])
-        self.gdservice = GDService(config['GoogleDrive'])
+        self.db = LocalStorageDatabase(config.database)
+        self.gdservice = GDService(config.google_drive)
 
     @property
     def _deletion_delay(self) -> int | None:
-        return self.config['Local'].get('DeletionDelay', None)
+        return self.config.local.deletion_delay
 
     @property
     def _root_path(self) -> Path:
-        return Path(self.config['Local']['RootPath']).resolve()
+        return Path(self.config.local.root_path).resolve()
 
     def cleanup(self, delay: float | None = None) -> int:
         """Delete local files marked for deletion before a given instant.
@@ -77,29 +78,6 @@ class GoogleDriveSync:
                     session.delete(ftd)
             session.commit()
         return 0
-
-    @staticmethod
-    def _parse_gw_extensions(formats: str) -> dict[str, list[ExportFormat]]:
-        """Parse a list of extensions per file type.
-
-        Each line must have a file type, a colon and a list of comma-separated
-        extensions. Spaces are ignored.
-
-        Args:
-            formats: the string to parse
-
-        Returns:
-            A dictionary mapping each file type to a list of extensions
-        """
-        return {
-            type: list(map(lambda ext: ExportFormat.from_extension(
-                ext), filter(lambda f: f, format.split(','))))
-            for type, format in
-            map(lambda l: l.split(':', 1),
-                filter(lambda l: l.count(':') == 1,
-                       re.sub('[^a-z,:\\.\n]', '', formats)
-                       .strip().split('\n')))
-        }
 
     @staticmethod
     def _make_fields_equal(old: Any, new: Any, fields: list[str]) -> int:
@@ -151,11 +129,10 @@ class GoogleDriveSync:
 
     @cached_property
     def _chosen_export_formats(self) -> dict[str, list[ExportFormat]]:
+        formats = self.config.google_drive.google_workspace_export_formats
         return {
-            'application/vnd.google-apps.' + type: ext
-            for type, ext in self._parse_gw_extensions(
-                self.config['GoogleDrive']
-                .get('GoogleWorkspaceExportingFormats', '')).items()
+            ('application/vnd.google-apps.' + type): format
+            for type, format in formats.items()
         }
 
     @cached_property
@@ -357,7 +334,7 @@ class GoogleDriveSync:
         return 0
 
 
-def sync(config: dict) -> int:
+def sync(config: Config) -> int:
     """Sync files from Google Drive.
 
     Args:
@@ -370,7 +347,7 @@ def sync(config: dict) -> int:
     return GoogleDriveSync(config).sync()
 
 
-def cleanup(config: dict, delay: float | None = None) -> int:
+def cleanup(config: Config, delay: float | None = None) -> int:
     """Delete local files that were marked for deletion before a given instant.
 
     Args:

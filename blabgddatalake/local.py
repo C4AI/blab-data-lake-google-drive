@@ -19,7 +19,7 @@ from typing import Any
 from urllib.parse import parse_qs
 
 from . import __version__ as VERSION
-
+from .config import DatabaseConfig
 
 logger = getLogger(__name__)
 
@@ -471,7 +471,7 @@ class DatabaseMetadata(Base):
 class LocalStorageDatabase:
     """Interacts with a database that stores file metadata."""
 
-    def __init__(self, db_config: dict[str, str]):
+    def __init__(self, db_config: DatabaseConfig):
         """
         Args:
             db_config: database configuration
@@ -480,22 +480,21 @@ class LocalStorageDatabase:
         see the section ``GoogleDrive`` in
         :download:`the documentation <../README_CONFIG.md>`.
         """  # noqa:D205,D400
-        self.db_config: dict[str, str] = db_config
+        self.db_config = db_config
         self._engine = self.__create_engine()
         Base.metadata.create_all(self._engine)
         self.upgrade()
 
     def __create_engine(self) -> Engine:
-        cfg = self.db_config
-        driver = cfg.get('Driver', '')
+        driver = self.db_config.driver
         url = sqlalchemy_url.create(
-            cfg['Dialect'] + ('+' if driver else '') + driver,
-            username=cfg.get('Username', None),
-            password=cfg.get('Password', None),
-            host=cfg.get('Host', None),
-            port=int(p) if (p := cfg.get('Port', None)) else None,
-            database=cfg.get('Database', None),
-            query=parse_qs(cfg.get('Query', ''))
+            self.db_config.dialect + ('+' if driver else '') + driver,
+            username=self.db_config.username,
+            password=self.db_config.password,
+            host=self.db_config.host,
+            port=self.db_config.port,
+            database=self.db_config.database,
+            query=parse_qs(self.db_config.query or '')
         )
         return create_engine(url)
 

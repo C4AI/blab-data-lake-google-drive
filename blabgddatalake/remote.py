@@ -15,12 +15,12 @@ from overrides import overrides
 from pathlib import Path
 from structlog import getLogger
 
+from .config import GoogleDriveConfig
 from .formats import ExportFormat
 
 _logger = getLogger(__name__)
 
 
-_DEFAULT_PAGE_SIZE = 100
 _FILE_FIELDS = ', '.join(['id', 'name', 'parents', 'kind', 'mimeType',
                          'webViewLink', 'md5Checksum', 'size', 'createdTime',
                           'modifiedTime', 'lastModifyingUser',
@@ -91,20 +91,19 @@ class RemoteDirectory(RemoteFile):
         (not necessarily the root on Google Drive)"""
 
     def _fill_children(self, gdservice: GoogleDriveService,
-                       gd_config: dict[str, str]) -> None:
+                       gd_config: GoogleDriveConfig) -> None:
         service = gdservice.service
         q_items = ['not trashed']
         if self.id:
             q_items.append(f"'{self.id}' in parents")
         q = ' and '.join(q_items)
-        shared_drive_id = gd_config.get('SharedDriveId', None)
+        shared_drive_id = gd_config.shared_drive_id
         params = dict(
             supportsAllDrives=bool(shared_drive_id),
             includeItemsFromAllDrives=bool(shared_drive_id),
             driveId=shared_drive_id or None,
             corpora='drive' if shared_drive_id else 'user',
-            pageSize=int(gd_config.get('PageSize', None) or
-                         _DEFAULT_PAGE_SIZE),
+            pageSize=int(gd_config.page_size),
             fields=f'nextPageToken, files({_FILE_FIELDS})',
             orderBy='folder, name',
             q=q
@@ -150,8 +149,8 @@ class RemoteDirectory(RemoteFile):
             self.children.append(node)
 
     @classmethod
-    def get_tree(cls, gdservice: GoogleDriveService, gd_config: dict[str, str]
-                 ) -> RemoteDirectory:
+    def get_tree(cls, gdservice: GoogleDriveService,
+                 gd_config: GoogleDriveConfig) -> RemoteDirectory:
         """Fetch and return the directory tree from Google Drive.
 
         There is no depth limit.
@@ -165,9 +164,8 @@ class RemoteDirectory(RemoteFile):
             by the ``SubTreeRootId`` field of `gd_config`.
         """
         service = gdservice.service
-        this_id = gd_config.get('SubTreeRootId', None) or \
-            gd_config.get('SharedDriveId', None)
-        shared_drive_id = gd_config.get('SharedDriveId', None)
+        this_id = gd_config.sub_tree_root_id or gd_config.shared_drive_id
+        shared_drive_id = gd_config.shared_drive_id
         if this_id:
             request = service.files().get(
                 fileId=this_id,
@@ -365,7 +363,7 @@ class GoogleDriveService:
     from a Google Drive directory or shared drive.
     """
 
-    def __init__(self, gd_config: dict[str, str],
+    def __init__(self, gd_config: GoogleDriveConfig,
                  _http: Http | None = None,
                  _service: Resource | None = None):
         """
@@ -384,7 +382,7 @@ class GoogleDriveService:
         :attr:`service` will be set to a fresh instance created by the
         constructor.
         """  # noqa:D205,D400
-        self.gd_config: dict[str, str] = gd_config
+        self.gd_config = gd_config
         """Configuration parameters"""
 
         self.service: Resource = _service or self.__get_service()
@@ -393,7 +391,7 @@ class GoogleDriveService:
     def __get_service(self, _http: Http | None = None) -> Resource:
         scopes = ['https://www.googleapis.com/auth/drive']
         cred = service_account.Credentials.from_service_account_file(
-            self.gd_config['ServiceAccountKeyFileName'], scopes=scopes)
+            self.gd_config.service_account_key_file_name, scopes=scopes)
         s = build('drive', 'v3', credentials=cred, cache_discovery=False)
         return s
 
@@ -404,7 +402,7 @@ class GoogleDriveService:
 
         Returns:
             an object representing the root directory defined
-            by the ``SubTreeRootId`` field of :attr:`gd_config`.
+            by the ``sub_tree_root_id`` field of :attr:`gd_config`.
         """
         return RemoteDirectory.get_tree(self, self.gd_config)
 
@@ -460,7 +458,7 @@ class GoogleDriveService:
         Returns:
             maximum number of retries
         """
-        return int(self.gd_config.get('Retries', '0'))
+        return self.gd_config.retries
 
     def export_file(self, file: RemoteRegularFile, formats: list[ExportFormat],
                     output_file_without_extension: str) -> bool | None:

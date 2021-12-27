@@ -5,35 +5,15 @@
 """
 
 import argparse
-import configparser
 import logging
 import structlog
 import sys
-import typing
 
+from .config import Config
 from .local import LocalStorageDatabase
 from .remote import GoogleDriveService as GDService
 from .server import serve
 from .sync import sync, cleanup
-
-
-def read_settings(fn: str = 'blab-data-lake-settings.cfg') \
-        -> configparser.ConfigParser:
-    """Read settings from a configuration file.
-
-    See :download:`the documentation <../README_CONFIG.md>` about the
-    fields.
-
-    Args:
-        fn: name of the configuration file
-
-    Returns:
-        parsed configuration
-    """
-    config = configparser.ConfigParser()
-    config.optionxform = str  # type: ignore  # do not convert to lower-case
-    config.read(fn)
-    return config
 
 
 def parse_args(args: list[str]) -> argparse.Namespace:
@@ -121,7 +101,8 @@ options = parse_args(sys.argv[1:])
 setup_logger(logging.DEBUG if options.debug else
              logging.WARNING if options.quiet else logging.INFO)
 
-config: dict[str, typing.Any] = dict(read_settings())
+settings_fn = 'blab-data-lake-settings.cfg'
+config = Config.read_settings(settings_fn)
 
 
 if options.cmd == 'sync':
@@ -131,11 +112,11 @@ elif options.cmd == 'cleanup':
 elif options.cmd == 'serve':
     serve(config, options.port)
 elif options.cmd == 'printlocal':
-    db = LocalStorageDatabase(config['Database'])
+    db = LocalStorageDatabase(config.database)
     with db.new_session() as session:
         tree = db.get_tree(session)
         if tree:
             tree.print_tree()
 elif options.cmd == 'printremote':
-    gdservice = GDService(config['GoogleDrive'])
+    gdservice = GDService(config.google_drive)
     gdservice.get_tree().print_tree()

@@ -6,6 +6,7 @@ from structlog import getLogger
 from sys import maxsize
 from waitress import serve as waitress_serve
 
+from .config import Config
 from .formats import ExportFormat
 from .local import LocalStorageDatabase, LocalFile, LocalRegularFile,\
     LocalGoogleWorkspaceFile
@@ -31,8 +32,8 @@ def tree(id: str | None = None) -> Response | None:
     Returns:
         the response in JSON
     """
-    config = app.config['options']
-    db = LocalStorageDatabase(config['Database'])
+    config: Config = app.config['options']
+    db = LocalStorageDatabase(config.database)
     depth = request.args.get('depth', maxsize, type=int)
     with db.new_session() as session:
         local_tree = db.get_tree(session) if id is None \
@@ -57,8 +58,8 @@ def download(id: str, revision_id: str | None = None) -> Response | None:
     Returns:
         the file contents
     """
-    config = app.config['options']
-    db = LocalStorageDatabase(config['Database'])
+    config: Config = app.config['options']
+    db = LocalStorageDatabase(config.database)
     log = _logger.bind(id=id)
     with db.new_session() as session:
         f: LocalFile | None
@@ -72,7 +73,7 @@ def download(id: str, revision_id: str | None = None) -> Response | None:
             rev = next(r for r in f.revisions if r.revision_id == revision_id)
         except StopIteration:
             abort(404)
-        directory = Path(config['Local']['RootPath'])
+        directory = Path(config.local.root_path)
         fn = directory.resolve() / rev.local_name
         log.info('sending file contents', local_name=fn)
         try:
@@ -105,8 +106,8 @@ def export(id: str) -> Response | None:
     extension = request.args.get('extension', '', type=str)
     if not extension:
         abort(400)
-    config = app.config['options']
-    db = LocalStorageDatabase(config['Database'])
+    config: Config = app.config['options']
+    db = LocalStorageDatabase(config.database)
     log = _logger.bind(id=id)
     with db.new_session() as session:
         f: LocalFile | None
@@ -116,7 +117,7 @@ def export(id: str) -> Response | None:
             abort(404)
         ver = f.head_version
 
-        directory = Path(config['Local']['RootPath'])
+        directory = Path(config.local.root_path)
         try:
             fn = directory.resolve() / ver.local_names[extension]
         except KeyError:
@@ -133,23 +134,20 @@ def export(id: str) -> Response | None:
             abort(503)
 
 
-def serve(config: dict, port: int | None) -> int:
+def serve(config: Config, port: int | None) -> int:
     """Start server.
 
     Args:
         config: configuration parameters (see
             :download:`the documentation <../README_CONFIG.md>`).
         port: the port to listen on (if provided, overrides the value
-            in ``config['LakeServer']['Port']``)
+            in ``config.lake_server.port``)
 
     Returns:
         0 if no problems occurred, 1 otherwise
     """
-    server_cfg = config['LakeServer']
-    if port is None:
-        port = int(p) if (p := server_cfg['Port']) is not None else None
-    host = server_cfg['Host']
+    server_cfg = config.lake_server
     app.config['options'] = config
     app.config['JSON_SORT_KEYS'] = False
-    waitress_serve(app, host=host, port=port)
+    waitress_serve(app, host=server_cfg.host, port=port or server_cfg.port)
     return 0
