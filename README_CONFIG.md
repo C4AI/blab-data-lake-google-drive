@@ -10,6 +10,9 @@
     id of the subtree root (shown on the web interface on the
     URL after `drive.google.com/drive/folders/`) -
     leave empty to use the entire drive
+- `Retries`: number of times to retry in case
+    the requests fail (0 by default; see argument `num_retries` on
+    [Google API Client Library documentation](https://googleapis.github.io/google-api-python-client/docs/epy/googleapiclient.http.HttpRequest-class.html#execute)).
 - `PageSize` (optional, defaults to 100): maximum number of
     files and folders retrieved per request
 

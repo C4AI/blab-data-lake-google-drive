@@ -118,7 +118,7 @@ class RemoteDirectory(RemoteFile):
                 **params
             )
             log.debug('requesting directory', page=page)
-            results = request.execute()
+            results = request.execute(num_retries=gdservice.num_retries)
             children += results['files']
             page_token = results.get('nextPageToken', None)
             page += 1
@@ -174,7 +174,7 @@ class RemoteDirectory(RemoteFile):
                 fields=_FILE_FIELDS,
             )
             _logger.debug('requesting root directory', id=this_id)
-            f = request.execute()
+            f = request.execute(num_retries=gdservice.num_retries)
             metadata = [f['name'], f['id'], f['mimeType'],
                         timestamp_parser.parse(f['createdTime']),
                         timestamp_parser.parse(f['modifiedTime']),
@@ -312,7 +312,8 @@ class RemoteRegularFile(RemoteFile):
             downloader = MediaIoBaseDownload(fd, request)
             completed = False
             while not completed:
-                status, completed = downloader.next_chunk()
+                status, completed = downloader.next_chunk(
+                    num_retries=gdservice.num_retries)
         return True
 
     def export(self, gdservice: GoogleDriveService,
@@ -351,7 +352,8 @@ class RemoteRegularFile(RemoteFile):
                 downloader = MediaIoBaseDownload(fd, request)
                 completed = False
                 while not completed:
-                    status, completed = downloader.next_chunk()
+                    status, completed = downloader.next_chunk(
+                        num_retries=gdservice.num_retries)
         return True
 
 
@@ -410,7 +412,7 @@ class GoogleDriveService:
             the list of formats they can be exported to
         """
         request = self.service.about().get(fields='exportFormats')
-        result = request.execute()
+        result = request.execute(num_retries=self.num_retries)
         return {k: list(map(
             lambda mt: ExportFormat.from_mime_type(mt), v))
             for k, v in result['exportFormats'].items()}
@@ -437,6 +439,23 @@ class GoogleDriveService:
         """
         return file.download(self, output_file,
                              skip_if_size_matches, also_check_md5)
+
+    @property
+    def num_retries(self) -> int:
+        """Return the number of times to retry the requests when they fail.
+
+        See argument `num_retries` on
+        `Google API Client Library documentation`_.
+
+        .. _Google API Client Library documentation: https://googleapis.\
+            github.io/google\
+            -api-python-client/docs/epy/googleapiclient.http.\
+            HttpRequest-class.html#execute
+
+        Returns:
+            maximum number of retries
+        """
+        return int(self.gd_config.get('Retries', '0'))
 
     def export_file(self, file: RemoteRegularFile, formats: list[ExportFormat],
                     output_file_without_extension: str) -> bool | None:

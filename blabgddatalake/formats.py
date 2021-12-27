@@ -35,9 +35,11 @@ Maps MIME types to their extensions.
 
 Note: ``application/zip`` is only available for Google Docs and Google Sheets,
 and in both cases the exported ZIP file is a collection of HTML files (see
-the complete list
-`here <https://developers.google.com/drive/api/v3/ref-export-formats>`_);
+the complete list on the `official documentation`_);
 therefore, the double extension ``html.zip`` is appropriate.
+
+.. _official documentation: <https://developers.google.com/drive/api/v3/\
+ref-export-formats>
 """
 
 gw_extension_to_mime_type = {v: k
