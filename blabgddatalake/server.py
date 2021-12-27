@@ -48,7 +48,7 @@ def download(id: str, revision_id: str | None = None) -> Response | None:
     """Return the contents of a file.
 
     This function does not apply to Google Workspace files,
-    which can be downloaded by :fun:`export` instead.
+    which can be downloaded by :func:`export` instead.
 
     Args:
         id: file id
@@ -90,11 +90,11 @@ def export(id: str) -> Response | None:
     """Return the exported contents of a file.
 
     This function only applies to Google Workspace files. Other files
-    can be downloaded by :fun:`download` instead.
+    can be downloaded by :func:`download` instead.
 
     Query args:
         extension: file extension (**must** be one of the extensions listed
-            by :fun:`tree` for this file)
+            by :func:`tree` for this file)
 
     Args:
         id: file id
