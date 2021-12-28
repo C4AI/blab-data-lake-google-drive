@@ -61,12 +61,23 @@ class GoogleDriveSync:
         elif (d := self._deletion_delay) is not None:
             until -= timedelta(seconds=float(d))
         _logger.debug('will delete files marked for deletion', until=until)
+        to_delete: list[tuple[Path, datetime]] = []
         with self.db.new_session() as session:
             for ftd in self.db.get_obsolete_file_revisions(session, until):
                 name = self._root_path / ftd.local_name
+                to_delete.append((name, ftd.obsolete_since))
+                session.delete(ftd)
+            for gwftd in self.db.get_obsolete_gw_file_versions(session, until):
+                for n in gwftd.local_names.values():
+                    name = self._root_path / n
+                    to_delete.append((name, gwftd.obsolete_since))
+                session.delete(gwftd)
+            session.flush()
+            for f in self.db.get_obsolete_files(session, until):
+                session.delete(f)
+            for name, obsolete_since in to_delete:
                 log = _logger.bind(
-                    name=ftd.local_name,
-                    marked_for_deletion_at=ftd.obsolete_since)
+                    name=name, marked_for_deletion_at=obsolete_since)
                 try:
                     os_delete_file(name)
                 except FileNotFoundError:
@@ -75,7 +86,6 @@ class GoogleDriveSync:
                     log.warn('could not delete file')
                 else:
                     log.info('file deleted')
-                    session.delete(ftd)
             session.commit()
         return 0
 
@@ -322,14 +332,16 @@ class GoogleDriveSync:
                     # nothing has changed
                     log.debug('no changes in file')
 
+            t = datetime.now()
             for fid in local_file_by_id.keys() - remote_file_by_id.keys():
                 lf = local_file_by_id[fid]
+                lf.obsolete_since = t
                 if isinstance(lf, LocalRegularFile):
-                    t = datetime.now()
                     lf.head_revision.obsolete_since = t
-                    lf.obsolete_since = t
-                    log = _logger.bind(name=lf.name, id=fid)
-                    log.info('file (deleted on server) marked for deletion')
+                elif isinstance(lf, LocalGoogleWorkspaceFile):
+                    lf.head_version.obsolete_since = t
+                log = _logger.bind(name=lf.name, id=fid)
+                log.info('file (deleted on server) marked for deletion')
             session.commit()
         return 0
 

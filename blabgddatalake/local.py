@@ -15,7 +15,7 @@ from sqlalchemy.orm import declarative_base, Session, relationship, backref
 from sqlalchemy.types import TypeDecorator, DateTime, Unicode
 from structlog import getLogger
 from sys import maxsize
-from typing import Any
+from typing import Any, Type, TypeVar
 from urllib.parse import parse_qs
 
 from . import __version__ as VERSION
@@ -610,10 +610,20 @@ class LocalStorageDatabase:
         """
         return Session(self._engine)
 
+    T = TypeVar('T', LocalFile, LocalFileRevision, LocalExportedGWFileVersion)
+
+    def _get_obsolete_items(self, c: Type[T], session: Session,
+                            until: datetime | None = None) -> list[T]:
+        stmt = select(c).where(c.obsolete_since.is_not(None))  # type: ignore
+        if until:
+            stmt = stmt.where(c.obsolete_since <= until)
+        result = session.execute(stmt)
+        return result.scalars().all()
+
     def get_obsolete_file_revisions(self, session: Session,
                                     until: datetime | None = None) \
             -> list[LocalFileRevision]:
-        """Return file revisionss marked for deletion before a given instant.
+        """Return file revisions marked for deletion before a given instant.
 
         This method only applies to regular files. The returned files
         have been either deleted or overwritten with newer versions on
@@ -625,13 +635,52 @@ class LocalStorageDatabase:
                 the specified instant will be returned
 
         Returns:
-            a (possibly empty) list of objects representing the files
+            a list of objects representing the files
             that have been marked for deletion until the time set by `until`
         """
-        logger.info('requesting list of files to delete', until=until)
-        stmt = select(LocalFileRevision).where(  # type: ignore
-            LocalFileRevision.obsolete_since.is_not(None))
-        if until:
-            stmt = stmt.where(LocalFileRevision.obsolete_since <= until)
-        result = session.execute(stmt)
-        return result.scalars().all()
+        logger.info('requesting file revisions to delete', until=until)
+        return self._get_obsolete_items(LocalFileRevision, session, until)
+
+    def get_obsolete_gw_file_versions(self, session: Session,
+                                      until: datetime | None = None) \
+            -> list[LocalExportedGWFileVersion]:
+        """Return file versions marked for deletion before a given instant.
+
+        This method only applies to Google Workspace files. The returned files
+        have been either deleted or overwritten with newer versions on
+        Google Drive.
+
+        Args:
+            session: the database session
+            until: if set, only files that have marked for deletion up to
+                the specified instant will be returned
+
+        Returns:
+            a list of objects representing the files
+            that have been marked for deletion until the time set by `until`
+        """
+        logger.info('requesting GW file versions to delete', until=until)
+        return self._get_obsolete_items(LocalExportedGWFileVersion, session,
+                                        until)
+
+    def get_obsolete_files(self, session: Session,
+                           until: datetime | None = None) \
+            -> list[LocalFile]:
+        """Return files and folders marked for deletion before a given instant.
+
+        This method applies to regular files, directories and
+        Google Workspace files. The returned files
+        have been either deleted or overwritten with newer versions on
+        Google Drive.
+
+        Args:
+            session: the database session
+            until: if set, only files that have marked for deletion up to
+                the specified instant will be returned
+
+        Returns:
+            a list of objects representing the files
+            that have been marked for deletion until the time set by `until`
+        """
+        logger.info('requesting files to delete (only metadata)', until=until)
+        return self._get_obsolete_items(LocalFile, session, until)
