@@ -141,24 +141,24 @@ class GoogleDriveSync:
     def _chosen_export_formats(self) -> dict[str, list[ExportFormat]]:
         formats = self.config.google_drive.google_workspace_export_formats
         return {
-            ('application/vnd.google-apps.' + type): format
-            for type, format in formats.items()
+            ('application/vnd.google-apps.' + t): fmt
+            for t, fmt in formats.items()
         }
 
     @cached_property
     def _unsupported_export_formats(self) -> dict[str, set[ExportFormat]]:
         return {
-            type:
-            set(chosen) - set(self._supported_export_formats.get(type, []))
-            for type, chosen in self._chosen_export_formats.items()
+            t:
+            set(chosen) - set(self._supported_export_formats.get(t, []))
+            for t, chosen in self._chosen_export_formats.items()
         }
 
     @cached_property
     def _export_formats(self) -> dict[str, list[ExportFormat]]:
         return {  # formats that are supported AND chosen
-            type: sorted(set(available) & set(
-                self._chosen_export_formats.get(type, [])))
-            for type, available in self._supported_export_formats.items()
+            t: sorted(set(available) & set(
+                self._chosen_export_formats.get(t, [])))
+            for t, available in self._supported_export_formats.items()
         }
 
     def _contents_changed(self, rf: RemoteFile, lf: LocalFile) -> bool:
@@ -280,11 +280,11 @@ class GoogleDriveSync:
         Returns:
             0 if no errors occurred, 1 otherwise
         """  # noqa: DAR401
-        for type, missing in self._unsupported_export_formats.items():
+        for ftype, missing in self._unsupported_export_formats.items():
             if missing:
                 unsup = set(map(lambda fmt: fmt.extension, missing))
                 _logger.warn('Unsupported export format(s) for type',
-                             unsupported_formats=unsup, type=type)
+                             unsupported_formats=unsup, type=ftype)
 
         with self.db.new_session() as session:
 
@@ -295,20 +295,20 @@ class GoogleDriveSync:
             remote_tree = self.gdservice.get_tree()
             remote_file_by_id = remote_tree.flatten()
 
-            for id, f in remote_file_by_id.items():
-                log = _logger.bind(name=f.name, id=id, mime_type=f.mime_type)
-                if id not in local_file_by_id:
-                    lf = self.db.get_file_by_id(session, id, True)
+            for fid, f in remote_file_by_id.items():
+                log = _logger.bind(name=f.name, id=fid, mime_type=f.mime_type)
+                if fid not in local_file_by_id:
+                    lf = self.db.get_file_by_id(session, fid, True)
                     if lf is not None:
                         log.info('previously deleted file has been recovered')
-                        local_file_by_id[id] = lf
+                        local_file_by_id[fid] = lf
                         lf.obsolete_since = None  # type: ignore
                     else:
                         # file is new
                         self._sync_new_file(session, f)
                         continue
                 # file already existed
-                lf = local_file_by_id[id]
+                lf = local_file_by_id[fid]
                 if self._contents_changed(f, lf):
                     # file contents have changed
                     log.info('file has changed')

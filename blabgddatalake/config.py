@@ -116,9 +116,9 @@ class GoogleDriveConfig(AutoConvertFromStringDataClass):
         type_formats = list(map(lambda l: l.split(':', 1),
                                 filter(lambda l: l.count(':') == 1, lines)))
         return {
-            type: list(map(lambda ext: ExportFormat.from_extension(ext),
-                           filter(lambda f: f, format.split(','))))
-            for type, format in type_formats
+            t: list(map(lambda ext: ExportFormat.from_extension(ext),
+                        filter(lambda f: f, fmt.split(','))))
+            for t, fmt in type_formats
         }
 
     def __post_init__(self):
