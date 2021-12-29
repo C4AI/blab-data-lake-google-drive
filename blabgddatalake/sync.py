@@ -34,7 +34,7 @@ class GoogleDriveSync:
         """  # noqa:D205,D400
         self.config = config
         self.db = LocalStorageDatabase(config.database)
-        self.gdservice = GDService(config.google_drive)
+        self.gdservice = _gdservice or GDService(config.google_drive)
 
     @property
     def _deletion_delay(self) -> int | None:
