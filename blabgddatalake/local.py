@@ -125,7 +125,7 @@ class LocalFile(Base):
         """Print the tree file names to standard output (for debugging)."""
         if _pfx is None:
             _pfx = []
-        for i, p in enumerate(_pfx[:-1]):
+        for p in _pfx[:-1]:
             print(' ┃ ' if p else '   ', end=' ')
         if _pfx:
             print(' ┠─' if _pfx[-1] else ' ┖─', end=' ')

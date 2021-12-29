@@ -245,7 +245,7 @@ class Config:
             parsed configuration
         """
         cp = ConfigParser()
-        setattr(cp, 'optionxform', str)  # do not convert to lower-case
+        cp.optionxform = str  # type: ignore # do not convert to lower-case
         cp.read(fn)
         return cls(
             GoogleDriveConfig.from_mapping(cp['GoogleDrive']),
