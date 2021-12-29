@@ -24,11 +24,11 @@ class AutoConvertFromStringDataClass:
     override ``__post_init__``.
     """
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         for f in fields(self):
             value = getattr(self, f.name)
             if isinstance(f.type, GenericAlias):
-                f.type = f.type.__origin__
+                f.type = f.type.__origin__  # type: ignore[unreachable]
             if not isinstance(value, f.type):
                 try:
                     converted = f.type(value)
@@ -121,10 +121,12 @@ class GoogleDriveConfig(AutoConvertFromStringDataClass):
             for t, fmt in type_formats
         }
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         f = self.google_workspace_export_formats
-        if isinstance(f, str):
-            self.google_workspace_export_formats = self.parse_gw_extensions(f)
+        if isinstance(f, str):  # type: ignore[unreachable]
+            self.google_workspace_export_formats = (  # type: ignore
+                self.parse_gw_extensions(f)
+            )
         super().__post_init__()
 
 
