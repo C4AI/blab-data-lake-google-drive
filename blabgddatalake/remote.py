@@ -182,7 +182,7 @@ class RemoteDirectory(RemoteFile):
                         None,
                         ]
         else:
-            metadata = ['', None, None, None, None, None, None]
+            metadata = ['', None, None, None, None, None, None, None, None]
         root = RemoteDirectory(*metadata, is_root=True)  # type: ignore
         root._fill_children(gdservice, gd_config)
         return root
@@ -261,13 +261,13 @@ class RemoteRegularFile(RemoteFile):
 
     @classmethod
     def _md5(cls, fn: str) -> str:
-        hash = md5()
+        md5_hash = md5()
         with open(fn, 'rb') as fd:
             for chunk_4k in iter(lambda: fd.read(4096), b''):
-                hash.update(chunk_4k)
-        return hash.hexdigest()
+                md5_hash.update(chunk_4k)
+        return md5_hash.hexdigest()
 
-    def download(self, gdservice: Resource, file_name: str,
+    def download(self, gdservice: GoogleDriveService, file_name: str,
                  skip_if_size_matches: bool = True,
                  also_check_md5: bool = False) -> bool | None:
         """Download the file.

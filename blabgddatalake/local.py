@@ -10,7 +10,7 @@ from sqlalchemy import Integer, String, Boolean, BigInteger, create_engine, \
     Column, ForeignKey, select, update, UniqueConstraint, inspect
 from sqlalchemy.engine import Dialect
 from sqlalchemy.engine.base import Engine
-from sqlalchemy.engine import URL as sqlalchemy_url
+from sqlalchemy.engine import URL
 from sqlalchemy.orm import declarative_base, Session, relationship, backref
 from sqlalchemy.types import TypeDecorator, DateTime, Unicode
 from structlog import getLogger
@@ -18,7 +18,7 @@ from sys import maxsize
 from typing import Any, Type, TypeVar
 from urllib.parse import parse_qs
 
-from . import __version__ as VERSION
+from . import __version__
 from .config import DatabaseConfig
 
 logger = getLogger(__name__)
@@ -505,7 +505,7 @@ class LocalStorageDatabase:
 
     def __create_engine(self) -> Engine:
         driver = self.db_config.driver
-        url = sqlalchemy_url.create(
+        url = URL.create(
             self.db_config.dialect + ('+' if driver else '') + driver,
             username=self.db_config.username,
             password=self.db_config.password,
@@ -526,7 +526,7 @@ class LocalStorageDatabase:
             if (version_row := result.first()):
                 version = version_row[0].value
             else:
-                version = VERSION
+                version = __version__
                 log = logger.bind(new=True)
                 row = DatabaseMetadata(key='version', value=version)
                 session.add(row)
@@ -555,7 +555,8 @@ class LocalStorageDatabase:
                     session.commit()
                     current_version = v
 
-    def get_tree(self, session: Session) -> LocalDirectory | None:
+    @classmethod
+    def get_tree(cls, session: Session) -> LocalDirectory | None:
         """Return an object representing the root of the local file tree.
 
         The files and subdirectories can be accessed in the
@@ -576,7 +577,8 @@ class LocalStorageDatabase:
         root = result.scalars().first()
         return root
 
-    def get_file_by_id(self, session: Session, id: str,
+    @classmethod
+    def get_file_by_id(cls, session: Session, file_id: str,
                        include_obsolete: bool = False) -> LocalFile | None:
         """Return an object representing a specific file stored locally.
 
@@ -584,7 +586,7 @@ class LocalStorageDatabase:
 
         Args:
             session: the database session
-            id: the id of the file or directory
+            file_id: the id of the file or directory
             include_obsolete: whether a file marked for deletion should be
                 returned
 
@@ -592,9 +594,9 @@ class LocalStorageDatabase:
             an object representing the file with the specified id,
             or `None` if it does not exist
         """
-        log = logger.bind(id=id)
+        log = logger.bind(id=file_id)
         log.info('requesting local file')
-        stmt = select(LocalFile).where(LocalFile.id == id)  # type: ignore
+        stmt = select(LocalFile).where(LocalFile.id == file_id)  # type: ignore
         if not include_obsolete:
             stmt = stmt.where(LocalFile.obsolete_since.is_(None))
         result = session.execute(stmt)
@@ -612,7 +614,8 @@ class LocalStorageDatabase:
 
     T = TypeVar('T', LocalFile, LocalFileRevision, LocalExportedGWFileVersion)
 
-    def _get_obsolete_items(self, c: Type[T], session: Session,
+    @classmethod
+    def _get_obsolete_items(cls, c: Type[T], session: Session,
                             until: datetime | None = None) -> list[T]:
         stmt = select(c).where(c.obsolete_since.is_not(None))  # type: ignore
         if until:
@@ -620,7 +623,8 @@ class LocalStorageDatabase:
         result = session.execute(stmt)
         return result.scalars().all()
 
-    def get_obsolete_file_revisions(self, session: Session,
+    @classmethod
+    def get_obsolete_file_revisions(cls, session: Session,
                                     until: datetime | None = None) \
             -> list[LocalFileRevision]:
         """Return file revisions marked for deletion before a given instant.
@@ -639,9 +643,10 @@ class LocalStorageDatabase:
             that have been marked for deletion until the time set by `until`
         """
         logger.info('requesting file revisions to delete', until=until)
-        return self._get_obsolete_items(LocalFileRevision, session, until)
+        return cls._get_obsolete_items(LocalFileRevision, session, until)
 
-    def get_obsolete_gw_file_versions(self, session: Session,
+    @classmethod
+    def get_obsolete_gw_file_versions(cls, session: Session,
                                       until: datetime | None = None) \
             -> list[LocalExportedGWFileVersion]:
         """Return file versions marked for deletion before a given instant.
@@ -660,10 +665,11 @@ class LocalStorageDatabase:
             that have been marked for deletion until the time set by `until`
         """
         logger.info('requesting GW file versions to delete', until=until)
-        return self._get_obsolete_items(LocalExportedGWFileVersion, session,
-                                        until)
+        return cls._get_obsolete_items(LocalExportedGWFileVersion, session,
+                                       until)
 
-    def get_obsolete_files(self, session: Session,
+    @classmethod
+    def get_obsolete_files(cls, session: Session,
                            until: datetime | None = None) \
             -> list[LocalFile]:
         """Return files and folders marked for deletion before a given instant.
@@ -683,4 +689,4 @@ class LocalStorageDatabase:
             that have been marked for deletion until the time set by `until`
         """
         logger.info('requesting files to delete (only metadata)', until=until)
-        return self._get_obsolete_items(LocalFile, session, until)
+        return cls._get_obsolete_items(LocalFile, session, until)

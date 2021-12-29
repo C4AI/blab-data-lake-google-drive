@@ -4,6 +4,7 @@ docs/*.rst
 !docs/index.rst
 
 .vscode/
+.idea/
 
 
 # Byte-compiled / optimized / DLL files

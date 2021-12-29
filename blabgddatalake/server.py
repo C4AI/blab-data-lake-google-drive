@@ -20,14 +20,14 @@ app = Flask(__name__)
 
 @app.route("/tree", methods=['GET'])
 @app.route("/tree/<id>", methods=['GET'])
-def tree(id: str | None = None) -> Response | None:
+def tree(root_id: str | None = None) -> Response | None:
     """Return a file tree containing only metadata.
 
     Query args:
         depth (int): maximum depth.
 
     Args:
-        id: if provided, use a specific file as root of a sub-tree.
+        root_id: if provided, use a specific file as root of a sub-tree.
 
     Returns:
         the response in JSON
@@ -36,8 +36,8 @@ def tree(id: str | None = None) -> Response | None:
     db = LocalStorageDatabase(config.database)
     depth = request.args.get('depth', maxsize, type=int)
     with db.new_session() as session:
-        local_tree = db.get_tree(session) if id is None \
-            else db.get_file_by_id(session, id)
+        local_tree = db.get_tree(session) if root_id is None \
+            else db.get_file_by_id(session, root_id)
         if local_tree:
             return jsonify({'tree': local_tree.as_dict(depth, True)})
     abort(404)
@@ -45,14 +45,14 @@ def tree(id: str | None = None) -> Response | None:
 
 @app.route("/download/<id>", methods=['GET'])
 @app.route("/download/<id>/<revision_id>", methods=['GET'])
-def download(id: str, revision_id: str | None = None) -> Response | None:
+def download(file_id: str, revision_id: str | None = None) -> Response | None:
     """Return the contents of a file.
 
     This function does not apply to Google Workspace files,
     which can be downloaded by :func:`export` instead.
 
     Args:
-        id: file id
+        file_id: file id
         revision_id: id of the file revision (if omitted, get latest version)
 
     Returns:
@@ -60,10 +60,10 @@ def download(id: str, revision_id: str | None = None) -> Response | None:
     """
     config: Config = app.config['options']
     db = LocalStorageDatabase(config.database)
-    log = _logger.bind(id=id)
+    log = _logger.bind(id=file_id)
     with db.new_session() as session:
         f: LocalFile | None
-        f = db.get_file_by_id(session, id)
+        f = db.get_file_by_id(session, file_id)
         log.info('requested file download', found=bool(f))
         if not isinstance(f, LocalRegularFile):
             abort(404)
@@ -87,7 +87,7 @@ def download(id: str, revision_id: str | None = None) -> Response | None:
 
 
 @app.route("/export/<id>", methods=['GET'])
-def export(id: str) -> Response | None:
+def export(file_id: str) -> Response | None:
     """Return the exported contents of a file.
 
     This function only applies to Google Workspace files. Other files
@@ -98,7 +98,7 @@ def export(id: str) -> Response | None:
             by :func:`tree` for this file)
 
     Args:
-        id: file id
+        file_id: file id
 
     Returns:
         the file contents
@@ -108,10 +108,10 @@ def export(id: str) -> Response | None:
         abort(400)
     config: Config = app.config['options']
     db = LocalStorageDatabase(config.database)
-    log = _logger.bind(id=id)
+    log = _logger.bind(id=file_id)
     with db.new_session() as session:
         f: LocalFile | None
-        f = db.get_file_by_id(session, id)
+        f = db.get_file_by_id(session, file_id)
         log.info('requested file export', found=bool(f))
         if not isinstance(f, LocalGoogleWorkspaceFile):
             abort(404)
