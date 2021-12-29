@@ -66,7 +66,7 @@ class ExportFormat:
     automatically guessed and may be incorrect
     """
 
-    def __lt__(self, other: Any):
+    def __lt__(self, other: Any) -> bool:
         if not isinstance(other, ExportFormat):
             return False
         return self.extension < other.extension

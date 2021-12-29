@@ -33,7 +33,7 @@ class _TimestampWithTZ(TypeDecorator):
 
     def process_bind_param(self, value: Any, _dialect: Dialect) \
             -> datetime | None:
-        if value is None:
+        if not isinstance(value, datetime):
             return None
         if value.tzinfo is None:
             value = value.astimezone(tz.tzlocal())
@@ -41,7 +41,7 @@ class _TimestampWithTZ(TypeDecorator):
 
     def process_result_value(self, value: Any, _dialect: Dialect) \
             -> datetime | None:
-        if value is None:
+        if not isinstance(value, datetime):
             return None
         if value.tzinfo is None:
             return value.replace(tzinfo=timezone.utc)
@@ -57,7 +57,7 @@ class _CommaSeparatedValues(TypeDecorator):
         return ','.join(value)
 
     def process_result_value(self, value: Any, dialect: Dialect) -> list[str]:
-        return value.split(',') if value else []
+        return value.split(',') if isinstance(value, str) and value else []
 
 
 class LocalFile(Base):
@@ -301,8 +301,6 @@ class LocalDirectory(LocalFile):
         Returns:
             a list of the directory's children
         """
-        if self._children is None:
-            return None
         return list(filter(lambda c: c.obsolete_since is None, self._children))
 
     def flatten(self) -> dict[str, LocalFile]:
@@ -482,7 +480,7 @@ class DatabaseMetadata(Base):
     value: str = Column(String)
     """Metadata value corresponding to key"""
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return f'[{self.key} = {self.value}]'
 
 
@@ -519,7 +517,7 @@ class LocalStorageDatabase:
     def upgrade(self) -> None:
         """Upgrade database to the current model version. Currently unused."""
         with Session(self._engine) as session:
-            stmt = select(DatabaseMetadata).where(  # type: ignore
+            stmt = select(DatabaseMetadata).where(
                 DatabaseMetadata.key == 'version')
             result = session.execute(stmt)
             log = logger.bind(new=False)
@@ -571,8 +569,7 @@ class LocalStorageDatabase:
             Google Drive)
         """
         logger.info('requesting local tree')
-        stmt = select(LocalDirectory).where(  # type: ignore
-            LocalDirectory.is_root)
+        stmt = select(LocalDirectory).where(LocalDirectory.is_root)
         result = session.execute(stmt)
         root = result.scalars().first()
         return root
@@ -596,7 +593,7 @@ class LocalStorageDatabase:
         """
         log = logger.bind(id=file_id)
         log.info('requesting local file')
-        stmt = select(LocalFile).where(LocalFile.id == file_id)  # type: ignore
+        stmt = select(LocalFile).where(LocalFile.id == file_id)
         if not include_obsolete:
             stmt = stmt.where(LocalFile.obsolete_since.is_(None))
         result = session.execute(stmt)
@@ -617,7 +614,7 @@ class LocalStorageDatabase:
     @classmethod
     def _get_obsolete_items(cls, c: Type[T], session: Session,
                             until: datetime | None = None) -> list[T]:
-        stmt = select(c).where(c.obsolete_since.is_not(None))  # type: ignore
+        stmt = select(c).where(c.obsolete_since.is_not(None))
         if until:
             stmt = stmt.where(c.obsolete_since <= until)
         result = session.execute(stmt)

@@ -203,7 +203,7 @@ todo_include_todos = True
 autoclass_content = 'both'
 
 
-def fix_sig(app, what, name, obj, options, signature, return_annotation):  # noqa: ANN
+def fix_sig(app, what, name, obj, options, signature, return_annotation):  # type: ignore[no-untyped-def] # noqa: ANN
     """Hide types from function signature."""  # noqa:DAR
     from inspect import Signature, Parameter
     if not callable(obj):
@@ -216,13 +216,13 @@ def fix_sig(app, what, name, obj, options, signature, return_annotation):  # noq
     return (str(sig), return_annotation)
 
 
-def keep_version(app, what, name, obj, would_skip, options):  # noqa: ANN
+def keep_version(app, what, name, obj, would_skip, options):   # type: ignore[no-untyped-def] # noqa: ANN
     """Do not ignore __version__."""  # noqa:DAR
     if name == '__version__':
         return False
     return would_skip
 
 
-def setup(app):  # noqa: ANN
+def setup(app):  # type: ignore[no-untyped-def] # noqa: ANN
     app.connect("autodoc-process-signature", fix_sig)
     app.connect("autodoc-skip-member", keep_version)
