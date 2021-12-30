@@ -9,7 +9,6 @@ from typing import TypeVar, Type
 
 from .formats import ExportFormat
 
-
 T = TypeVar('T', bound='AutoConvertFromStringDataClass')
 
 
@@ -113,11 +112,13 @@ class GoogleDriveConfig(AutoConvertFromStringDataClass):
             A dictionary mapping each file type to a list of extensions
         """
         lines = re_sub('[^a-z,:\\.\n]', '', formats).strip().split('\n')
-        type_formats = list(map(lambda l: l.split(':', 1),
-                                filter(lambda l: l.count(':') == 1, lines)))
+        type_formats = list(
+            map(lambda l: l.split(':', 1),
+                filter(lambda l: l.count(':') == 1, lines)))
         return {
-            t: list(map(lambda ext: ExportFormat.from_extension(ext),
-                        filter(lambda f: f, fmt.split(','))))
+            t: list(
+                map(lambda ext: ExportFormat.from_extension(ext),
+                    filter(lambda f: f, fmt.split(','))))
             for t, fmt in type_formats
         }
 
@@ -125,8 +126,7 @@ class GoogleDriveConfig(AutoConvertFromStringDataClass):
         f = self.google_workspace_export_formats
         if isinstance(f, str):  # type: ignore[unreachable]
             self.google_workspace_export_formats = (  # type: ignore
-                self.parse_gw_extensions(f)
-            )
+                self.parse_gw_extensions(f))
         super().__post_init__()
 
 

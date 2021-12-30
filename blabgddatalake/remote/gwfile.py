@@ -31,13 +31,14 @@ class RemoteGoogleWorkspaceFile(RemoteFile):
         Returns:
             Local file name
         """
-        return (self.id + '_' +
-                self.modified_time.strftime('%Y%m%d_%H%M%S%f'))
+        return (self.id + '_' + self.modified_time.strftime('%Y%m%d_%H%M%S%f'))
 
     @classmethod
-    def from_dict(cls, metadata: dict[str, Any],
-                  parent: file.RemoteDirectory | None = None
-                  ) -> RemoteGoogleWorkspaceFile:
+    def from_dict(
+        cls,
+        metadata: dict[str, Any],
+        parent: file.RemoteDirectory | None = None
+    ) -> RemoteGoogleWorkspaceFile:
         """Create an instance from a dictionary with data from Google Drive.
 
         Documentation is available
@@ -49,13 +50,16 @@ class RemoteGoogleWorkspaceFile(RemoteFile):
 
         Returns:
             an instance with the metadata obtained from ``f``
-
         """
         return RemoteGoogleWorkspaceFile(
-            metadata['name'], metadata['id'], metadata['mimeType'],
+            metadata['name'],
+            metadata['id'],
+            metadata['mimeType'],
             timestamp_parser.parse(metadata['createdTime']),
             timestamp_parser.parse(metadata['modifiedTime']),
             metadata['lastModifyingUser']['displayName'],
-            metadata['webViewLink'], metadata['iconLink'], parent,
+            metadata['webViewLink'],
+            metadata['iconLink'],
+            parent,
             metadata.get('capabilities', {}).get('canDownload', False),
         )

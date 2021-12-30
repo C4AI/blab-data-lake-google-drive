@@ -5,9 +5,8 @@ from datetime import datetime, timezone
 from typing import Any
 
 from dateutil import tz
-from sqlalchemy import (
-    TypeDecorator, DateTime, Unicode, Column, Integer, String
-)
+from sqlalchemy import (TypeDecorator, DateTime, Unicode, Column, Integer,
+                        String)
 from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import declarative_base
 from structlog import getLogger

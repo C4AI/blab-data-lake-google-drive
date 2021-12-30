@@ -42,8 +42,10 @@ therefore, the double extension ``html.zip`` is appropriate.
 ref-export-formats>
 """
 
-gw_extension_to_mime_type = {v: k
-                             for k, v in gw_mime_type_to_extension.items()}
+gw_extension_to_mime_type = {
+    v: k
+    for k, v in gw_mime_type_to_extension.items()
+}
 """
 Maps extensions to their MIME types.
 """

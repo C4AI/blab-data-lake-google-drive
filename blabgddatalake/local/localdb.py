@@ -37,15 +37,14 @@ class LocalStorageDatabase:
 
     def __create_engine(self) -> Engine:
         driver = self.db_config.driver
-        url = URL.create(
-            self.db_config.dialect + ('+' if driver else '') + driver,
-            username=self.db_config.username,
-            password=self.db_config.password,
-            host=self.db_config.host,
-            port=self.db_config.port,
-            database=self.db_config.database,
-            query=parse_qs(self.db_config.query or '')
-        )
+        url = URL.create(self.db_config.dialect + ('+' if driver else '') +
+                         driver,
+                         username=self.db_config.username,
+                         password=self.db_config.password,
+                         host=self.db_config.host,
+                         port=self.db_config.port,
+                         database=self.db_config.database,
+                         query=parse_qs(self.db_config.query or ''))
         return create_engine(url)
 
     def upgrade(self) -> None:
@@ -77,14 +76,14 @@ class LocalStorageDatabase:
             v = parse_version(version)
             if current_version < v:
                 _logger.info('upgrading database version',
-                             old=current_version, new=v)
+                             old=current_version,
+                             new=v)
                 with Session(self._engine) as session:
                     fn()
                     session.execute(
                         update(DatabaseMetadata).where(
-                            DatabaseMetadata.key == 'version')
-                        .values(value=version)
-                    )
+                            DatabaseMetadata.key == 'version').values(
+                                value=version))
                     session.commit()
                     current_version = v
 
@@ -110,7 +109,9 @@ class LocalStorageDatabase:
         return root
 
     @classmethod
-    def get_file_by_id(cls, session: Session, file_id: str,
+    def get_file_by_id(cls,
+                       session: Session,
+                       file_id: str,
                        include_obsolete: bool = False) -> LocalFile | None:
         """Return an object representing a specific file stored locally.
 
@@ -147,7 +148,9 @@ class LocalStorageDatabase:
     T = TypeVar('T', LocalFile, LocalFileRevision, LocalExportedGWFileVersion)
 
     @classmethod
-    def _get_obsolete_items(cls, c: Type[T], session: Session,
+    def _get_obsolete_items(cls,
+                            c: Type[T],
+                            session: Session,
                             until: datetime | None = None) -> list[T]:
         stmt = select(c).where(c.obsolete_since.is_not(None))
         if until:

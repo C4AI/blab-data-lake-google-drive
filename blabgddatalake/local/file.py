@@ -45,10 +45,9 @@ class LocalFile(local.Base, common.TreeNode):
     parent_id: str | None = Column(String, ForeignKey(id))
     """Id of the parent directory"""
 
-    parent: LocalDirectory = relationship(
-        'LocalDirectory',
-        backref=backref('_children'), remote_side=[id]
-    )
+    parent: LocalDirectory = relationship('LocalDirectory',
+                                          backref=backref('_children'),
+                                          remote_side=[id])
     """Parent directory, or ``None`` if this is the root"""
 
     modified_time: datetime = Column(_TimestampWithTZ())
@@ -91,7 +90,8 @@ class LocalFile(local.Base, common.TreeNode):
             p = self.parent.virtual_path
         return p + [self.name or '']
 
-    def as_dict(self, depth: int = maxsize,
+    def as_dict(self,
+                depth: int = maxsize,
                 remove_gdfile_id: bool = False) -> dict[str, Any]:
         """Prepare the object to be serialised by converting it to a dict.
 
@@ -118,9 +118,7 @@ class LocalDirectory(LocalFile, common.NonLeafTreeNode):
     """Whether this directory is the root specified in the settings
         (not necessarily the root on Google Drive)"""
 
-    __mapper_args__ = {
-        'polymorphic_identity': 'directory'
-    }
+    __mapper_args__ = {'polymorphic_identity': 'directory'}
 
     _children: list[LocalFile]
 
@@ -141,15 +139,17 @@ class LocalDirectory(LocalFile, common.NonLeafTreeNode):
         """
         d: dict[str, LocalFile] = {self.id: self}
         for c in self.children or []:
-            d.update(c.flatten() if isinstance(c, LocalDirectory)
-                     else {c.id: c})
+            d.update(
+                c.flatten() if isinstance(c, LocalDirectory) else {c.id: c})
         return d
 
     @overrides
-    def as_dict(self, depth: int = maxsize,
+    def as_dict(self,
+                depth: int = maxsize,
                 remove_gdfile_id: bool = False) -> dict[str, Any]:
         d = super().as_dict(depth, remove_gdfile_id)
         if depth > 0:
-            d['children'] = [c.as_dict(depth - 1, remove_gdfile_id)
-                             for c in self._children]
+            d['children'] = [
+                c.as_dict(depth - 1, remove_gdfile_id) for c in self._children
+            ]
         return d
