@@ -28,7 +28,7 @@ copyright = '2021, C4AI'
 author = 'C4AI'
 
 # The short X.Y version
-version = re.sub(r'[0-9\.]', __version__, '')
+version = re.sub(r'[^0-9\.]', '', __version__)
 # The full version, including alpha/beta/rc tags
 release = __version__
 
@@ -201,6 +201,13 @@ todo_include_todos = True
 
 # Include documentation for __init__
 autoclass_content = 'both'
+
+
+# Show full tree on the left
+html_theme_options = {
+    'navigation_depth': 999,
+    'display_version': True,
+}
 
 
 def fix_sig(app, what, name, obj, options, signature, return_annotation):  # type: ignore[no-untyped-def] # noqa: ANN

@@ -7,7 +7,6 @@ Welcome to BLAB Data Lake's documentation!
 ==========================================
 
 .. toctree::
-   :maxdepth: 3
 
 
    modules

@@ -140,8 +140,7 @@ def serve(config: Config, port: int | None) -> int:
     """Start server.
 
     Args:
-        config: configuration parameters (see
-            :download:`the documentation <../README_CONFIG.md>`).
+        config: configuration parameters.
         port: the port to listen on (if provided, overrides the value
             in ``config.lake_server.port``)
 
