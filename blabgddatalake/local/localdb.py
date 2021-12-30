@@ -28,11 +28,7 @@ class LocalStorageDatabase:
     def __init__(self, db_config: DatabaseConfig):
         """
         Args:
-            db_config: database configuration
-
-        For a description of the expected keys and values of `db_config`,
-        see the section ``GoogleDrive`` in
-        :download:`the documentation <../README_CONFIG.md>`.
+            db_config: database configuration.
         """  # noqa:D205,D400
         self.db_config = db_config
         self._engine = self.__create_engine()

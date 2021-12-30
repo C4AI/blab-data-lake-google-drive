@@ -349,8 +349,7 @@ def sync(config: Config) -> int:
     """Sync files from Google Drive.
 
     Args:
-        config: configuration parameters (see
-            :download:`the documentation <../README_CONFIG.md>`).
+        config: configuration parameters.
 
     Returns:
         0 if no errors occurred, 1 otherwise
@@ -362,8 +361,7 @@ def cleanup(config: Config, delay: float | None = None) -> int:
     """Delete local files that were marked for deletion before a given instant.
 
     Args:
-        config: configuration parameters (see
-            :download:`the documentation <../README_CONFIG.md>`).
+        config: configuration parameters.
         delay: only delete files that were marked for deletion at least
             this number of seconds ago (optional, overrides
             ``config['Local']['DeletionDelay']``).
