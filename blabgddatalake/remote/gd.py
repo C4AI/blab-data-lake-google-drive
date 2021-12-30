@@ -13,6 +13,7 @@ from blabgddatalake.config import GoogleDriveConfig
 from blabgddatalake.formats import ExportFormat
 import blabgddatalake.remote.directory as remotedir
 import blabgddatalake.remote.regularfile as remoterf
+import blabgddatalake.remote.gwfile as remotegwf
 
 _logger = getLogger(__name__)
 
@@ -122,7 +123,7 @@ class GoogleDriveService:
         """
         return self.gd_config.retries
 
-    def export_file(self, file: remoterf.RemoteRegularFile,
+    def export_file(self, file: remotegwf.RemoteGoogleWorkspaceFile,
                     formats: list[ExportFormat],
                     output_file_without_extension: str) -> bool | None:
         """Download a file exported from Google Drive.

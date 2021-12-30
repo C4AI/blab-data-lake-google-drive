@@ -10,9 +10,9 @@ from sqlalchemy.orm import relationship, backref
 from sys import maxsize
 from typing import Any
 
-from blabgddatalake.locall import Base, _TimestampWithTZ, _CommaSeparatedValues
-from blabgddatalake.locall.file import LocalFile
-from blabgddatalake.locall.regularfile import LocalRegularFile
+from blabgddatalake.local import Base, _TimestampWithTZ, _CommaSeparatedValues
+from blabgddatalake.local.file import LocalFile
+from blabgddatalake.local.regularfile import LocalRegularFile
 
 
 class LocalGoogleWorkspaceFile(LocalFile):

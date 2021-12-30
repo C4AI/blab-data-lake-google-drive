@@ -10,6 +10,7 @@ from blabgddatalake.config import GoogleDriveConfig
 from blabgddatalake.remote.file import RemoteFile
 import blabgddatalake.remote.gd as gd
 import blabgddatalake.remote.regularfile as regularfile
+import blabgddatalake.remote.gwfile as gwfile
 from blabgddatalake.common import NonLeafTreeNode
 
 _logger = getLogger(__name__)
@@ -94,11 +95,14 @@ class RemoteDirectory(RemoteFile, NonLeafTreeNode):
                 rd = RemoteDirectory.from_dict(f, self)
                 rd._fill_children(gdservice, gd_config)
                 node = rd
-            else:
-                rrf = regularfile.RemoteRegularFile.from_dict(f, self)
-                rrf.export_extensions = list(map(
+            elif f['mimeType'].startswith('application/vnd.google-apps.'):
+                rgwf = gwfile.RemoteGoogleWorkspaceFile.from_dict(f, self)
+                rgwf.export_extensions = list(map(
                     lambda fmt: str(fmt.extension),
                     gdservice.export_formats().get(f['mimeType'], [])))
+                node = rgwf
+            else:
+                rrf = regularfile.RemoteRegularFile.from_dict(f, self)
                 node = rrf
             self.children.append(node)
 
