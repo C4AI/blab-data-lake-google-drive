@@ -5,12 +5,12 @@ from dataclasses import dataclass, field
 from structlog import getLogger
 from typing import Any
 from dateutil import parser as timestamp_parser
-from overrides import overrides
 
 from blabgddatalake.config import GoogleDriveConfig
 from blabgddatalake.remote.file import RemoteFile
 import blabgddatalake.remote.gd as gd
 import blabgddatalake.remote.regularfile as regularfile
+from blabgddatalake.common import NonLeafTreeNode
 
 _logger = getLogger(__name__)
 
@@ -22,7 +22,7 @@ _FILE_FIELDS = ', '.join(['id', 'name', 'parents', 'kind', 'mimeType',
 
 
 @dataclass
-class RemoteDirectory(RemoteFile):
+class RemoteDirectory(RemoteFile, NonLeafTreeNode):
     """Represents a directory stored on Google Drive."""
 
     children: list[RemoteFile] = field(default_factory=list)
@@ -149,13 +149,3 @@ class RemoteDirectory(RemoteFile):
             d.update(c.flatten() if isinstance(c, RemoteDirectory)
                      else {c.id: c})
         return d
-
-    @overrides
-    def print_tree(self, _pfx: list[bool] | None = None) -> None:
-        super().print_tree(_pfx)
-        if _pfx is None:
-            _pfx = []
-        for child in self.children[:-1]:
-            child.print_tree(_pfx + [True])
-        if self.children:
-            self.children[-1].print_tree(_pfx + [False])

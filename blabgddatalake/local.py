@@ -20,9 +20,9 @@ from urllib.parse import parse_qs
 
 from . import __version__
 from .config import DatabaseConfig
+from blabgddatalake.common import NonLeafTreeNode, TreeNode
 
 logger = getLogger(__name__)
-
 
 Base = declarative_base()
 
@@ -60,7 +60,7 @@ class _CommaSeparatedValues(TypeDecorator):
         return value.split(',') if isinstance(value, str) and value else []
 
 
-class LocalFile(Base):
+class LocalFile(Base, TreeNode):
     """Represents a file or directory from Google Drive.
 
     Instances can be regular files, Google Workspace files or directories.
@@ -120,16 +120,6 @@ class LocalFile(Base):
 
     def __repr__(self) -> str:
         return f'(name={self.name}, gdid={self.gdfile_id})'
-
-    def print_tree(self, _pfx: list[bool] | None = None) -> None:
-        """Print the tree file names to standard output (for debugging)."""
-        if _pfx is None:
-            _pfx = []
-        for p in _pfx[:-1]:
-            print(' ┃ ' if p else '   ', end=' ')
-        if _pfx:
-            print(' ┠─' if _pfx[-1] else ' ┖─', end=' ')
-        print(self.name)
 
     @property
     def virtual_path(self) -> list[str]:
@@ -196,9 +186,9 @@ class LocalRegularFile(LocalFile):
         Returns:
             Local file name
         """
-        return self.id + \
-            '_' + (self.head_revision_id or '') + \
-            '_' + (self.md5_checksum or '')
+        return (self.id +
+                '_' + (self.head_revision_id or '') +
+                '_' + (self.md5_checksum or ''))
 
     @property
     def size(self) -> int:
@@ -281,7 +271,7 @@ class LocalGoogleWorkspaceFile(LocalFile):
         return d
 
 
-class LocalDirectory(LocalFile):
+class LocalDirectory(LocalFile, NonLeafTreeNode):
     """Represents a Google Drive directory."""
 
     is_root: bool | None = Column(Boolean, default=False)
@@ -323,17 +313,6 @@ class LocalDirectory(LocalFile):
             d['children'] = [c.as_dict(depth - 1, remove_gdfile_id)
                              for c in self._children]
         return d
-
-    @overrides
-    def print_tree(self, _pfx: list[bool] | None = None) -> None:
-        """Print the tree file names to standard output (for debugging)."""
-        if _pfx is None:
-            _pfx = []
-        super().print_tree(_pfx)
-        for child in (self.children or [])[:-1]:
-            child.print_tree(_pfx + [True])
-        if self.children:
-            self.children[-1].print_tree(_pfx + [False])
 
 
 class LocalFileRevision(Base):
@@ -394,7 +373,7 @@ class LocalFileRevision(Base):
     """
 
     __table_args__ = (UniqueConstraint('file_id', 'revision_id',
-                      name='_file_revision_unique'),
+                                       name='_file_revision_unique'),
                       )
 
 
@@ -441,8 +420,8 @@ class LocalExportedGWFileVersion(Base):
         Returns:
             The local file name without the extension
         """
-        return self.file_id + '_' + \
-            self.modified_time.strftime('%Y%m%d_%H%M%S%f')
+        return (self.file_id + '_' +
+                self.modified_time.strftime('%Y%m%d_%H%M%S%f'))
 
     @property
     def local_names(self) -> dict[str, str]:
@@ -462,7 +441,7 @@ class LocalExportedGWFileVersion(Base):
     """
 
     __table_args__ = (UniqueConstraint('file_id', 'modified_time',
-                      name='_gw_file_version_unique'),
+                                       name='_gw_file_version_unique'),
                       )
 
 
@@ -548,8 +527,9 @@ class LocalStorageDatabase:
                     fn()
                     session.execute(
                         update(DatabaseMetadata).where(
-                            DatabaseMetadata.key == 'version').
-                        values(value=version))
+                            DatabaseMetadata.key == 'version')
+                        .values(value=version)
+                    )
                     session.commit()
                     current_version = v
 
