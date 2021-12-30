@@ -11,7 +11,7 @@ from googleapiclient.http import MediaIoBaseDownload
 
 from blabgddatalake.formats import ExportFormat
 import blabgddatalake.remote.gd as gd
-import blabgddatalake.remote.directory as directory
+import blabgddatalake.remote.file as file
 from blabgddatalake.remote.file import RemoteFile
 
 _logger = getLogger(__name__)
@@ -74,7 +74,7 @@ class RemoteGoogleWorkspaceFile(RemoteFile):
 
     @classmethod
     def from_dict(cls, metadata: dict[str, Any],
-                  parent: directory.RemoteDirectory | None = None
+                  parent: file.RemoteDirectory | None = None
                   ) -> RemoteGoogleWorkspaceFile:
         """Create an instance from a dictionary with data from Google Drive.
 
@@ -89,7 +89,7 @@ class RemoteGoogleWorkspaceFile(RemoteFile):
             an instance with the metadata obtained from ``f``
 
         """
-        return RemoteGoogleWorkspaceFile(  # type: ignore[call-arg]
+        return RemoteGoogleWorkspaceFile(
             metadata['name'], metadata['id'], metadata['mimeType'],
             timestamp_parser.parse(metadata['createdTime']),
             timestamp_parser.parse(metadata['modifiedTime']),
