@@ -11,7 +11,7 @@ import sys
 
 from .config import Config
 from .local import LocalStorageDatabase
-from .remote import GoogleDriveService as GDService
+from .remote.gd import GoogleDriveService as GDService
 from .server import serve
 from .sync import sync, cleanup
 
@@ -64,7 +64,7 @@ def parse_args(args: list[str]) -> argparse.Namespace:
     parser_cleanup = subparsers.add_parser(
         'cleanup',
         help='delete local files that have been deleted or overwritten ' +
-        'on Google Drive')
+             'on Google Drive')
     parser_cleanup.add_argument(
         '--delay', help='deletion delay', type=non_negative_float)
     subparsers.add_parser(
@@ -92,7 +92,7 @@ def setup_logger(level: int) -> None:
     """
     from sys import stdout
     logging.basicConfig(level=logging.INFO, format="%(message)s",
-                        stream=stdout,)
+                        stream=stdout, )
     structlog.configure(
         wrapper_class=structlog.make_filtering_bound_logger(level))
 
@@ -103,7 +103,6 @@ setup_logger(logging.DEBUG if options.debug else
 
 settings_fn = 'blab-data-lake-settings.cfg'
 config = Config.read_settings(settings_fn)
-
 
 if options.cmd == 'sync':
     sync(config)

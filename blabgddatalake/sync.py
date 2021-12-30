@@ -10,12 +10,13 @@ from typing import Any, cast
 
 from .config import Config
 from .formats import ExportFormat
-from .remote import RemoteDirectory, RemoteRegularFile, RemoteFile, \
-    GoogleDriveService as GDService
+from .remote.file import RemoteFile
+from .remote.directory import RemoteDirectory
+from .remote.regularfile import RemoteRegularFile
+from .remote.gd import GoogleDriveService as GDService
 from .local import LocalStorageDatabase, LocalFile, LocalDirectory, \
     LocalRegularFile, LocalGoogleWorkspaceFile, LocalFileRevision, \
     LocalExportedGWFileVersion
-
 
 _logger = getLogger(__name__)
 
@@ -149,7 +150,7 @@ class GoogleDriveSync:
     def _unsupported_export_formats(self) -> dict[str, set[ExportFormat]]:
         return {
             t:
-            set(chosen) - set(self._supported_export_formats.get(t, []))
+                set(chosen) - set(self._supported_export_formats.get(t, []))
             for t, chosen in self._chosen_export_formats.items()
         }
 
@@ -164,14 +165,15 @@ class GoogleDriveSync:
     def _contents_changed(self, rf: RemoteFile, lf: LocalFile) -> bool:
         if isinstance(lf, LocalRegularFile):
             rfile = cast(RemoteRegularFile, rf)
-            return rfile.head_revision_id != lf.head_revision_id or \
-                rfile.can_download != lf.can_download
+            return (rfile.head_revision_id != lf.head_revision_id or
+                    rfile.can_download != lf.can_download)
         elif isinstance(lf, LocalGoogleWorkspaceFile):
             rfile = cast(RemoteRegularFile, rf)
-            return rf.modified_time > lf.modified_time or \
-                rfile.can_download != lf.can_export or \
-                list(map(lambda fmt: fmt.extension, self._export_formats.get(
-                    rf.mime_type, []))) != lf.head_version.extensions
+            return (rf.modified_time > lf.modified_time or
+                    rfile.can_download != lf.can_export or
+                    list(map(lambda fmt: fmt.extension,
+                             self._export_formats.get(rf.mime_type, []))) !=
+                    lf.head_version.extensions)
         else:
             return False
 
