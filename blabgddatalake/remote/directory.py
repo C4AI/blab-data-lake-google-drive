@@ -95,7 +95,7 @@ class RemoteDirectory(RemoteFile):
                 rd._fill_children(gdservice, gd_config)
                 node = rd
             else:
-                rrf = regularfile.RemoteRegularFile.from_dict(f)
+                rrf = regularfile.RemoteRegularFile.from_dict(f, self)
                 rrf.export_extensions = list(map(
                     lambda fmt: str(fmt.extension),
                     gdservice.export_formats().get(f['mimeType'], [])))
