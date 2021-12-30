@@ -91,7 +91,7 @@ class RemoteDirectory(RemoteFile):
         (not necessarily the root on Google Drive)"""
 
     @classmethod
-    def from_dict(cls, f: dict[str, Any],
+    def from_dict(cls, metadata: dict[str, Any],
                   parent: RemoteDirectory | None = None) -> RemoteDirectory:
         """Create an instance from a dictionary with data from Google Drive.
 
@@ -99,7 +99,7 @@ class RemoteDirectory(RemoteFile):
         `here <https://developers.google.com/drive/api/v3/reference/files>`_.
 
         Args:
-            f: a dictionary with file metadata
+            metadata: a dictionary with file metadata
             parent: the parent directory, if this is not the root
 
         Returns:
@@ -107,11 +107,11 @@ class RemoteDirectory(RemoteFile):
 
         """
         return RemoteDirectory(
-            f['name'], f['id'], f['mimeType'],
-            timestamp_parser.parse(f['createdTime']),
-            timestamp_parser.parse(f['modifiedTime']),
-            f['lastModifyingUser']['displayName'],
-            f['webViewLink'], f['iconLink'], parent
+            metadata['name'], metadata['id'], metadata['mimeType'],
+            timestamp_parser.parse(metadata['createdTime']),
+            timestamp_parser.parse(metadata['modifiedTime']),
+            metadata['lastModifyingUser']['displayName'],
+            metadata['webViewLink'], metadata['iconLink'], parent
         )
 
     def _fill_children(self, gdservice: GoogleDriveService,
@@ -250,11 +250,11 @@ class RemoteRegularFile(RemoteFile):
         """
         if self.is_google_workspace_file:
             return self.id + '_' + \
-                self.modified_time.strftime('%Y%m%d_%H%M%S%f')
+                   self.modified_time.strftime('%Y%m%d_%H%M%S%f')
         else:
             return self.id + \
-                '_' + (self.head_revision_id or '') + \
-                '_' + (self.md5_checksum or '')
+                   '_' + (self.head_revision_id or '') + \
+                   '_' + (self.md5_checksum or '')
 
     @property
     def is_google_workspace_file(self) -> bool:
@@ -363,7 +363,7 @@ class RemoteRegularFile(RemoteFile):
         return True
 
     @classmethod
-    def from_dict(cls, f: dict[str, Any],
+    def from_dict(cls, metadata: dict[str, Any],
                   parent: RemoteDirectory | None = None
                   ) -> RemoteRegularFile:
         """Create an instance from a dictionary with data from Google Drive.
@@ -372,7 +372,7 @@ class RemoteRegularFile(RemoteFile):
         `here <https://developers.google.com/drive/api/v3/reference/files>`_.
 
         Args:
-            f: a dictionary with file metadata
+            metadata: a dictionary with file metadata
             parent: the parent directory, if this is not the root
 
         Returns:
@@ -380,15 +380,15 @@ class RemoteRegularFile(RemoteFile):
 
         """
         return RemoteRegularFile(
-            f['name'], f['id'], f['mimeType'],
-            timestamp_parser.parse(f['createdTime']),
-            timestamp_parser.parse(f['modifiedTime']),
-            f['lastModifyingUser']['displayName'],
-            f['webViewLink'], f['iconLink'], parent,
-            int(s) if (s := f.get('size', None)) is not None else 0,
-            f.get('md5Checksum', None),
-            f.get('headRevisionId', None),
-            f.get('capabilities', {}).get('canDownload', False),
+            metadata['name'], metadata['id'], metadata['mimeType'],
+            timestamp_parser.parse(metadata['createdTime']),
+            timestamp_parser.parse(metadata['modifiedTime']),
+            metadata['lastModifyingUser']['displayName'],
+            metadata['webViewLink'], metadata['iconLink'], parent,
+            int(s) if (s := metadata.get('size', None)) is not None else 0,
+            metadata.get('md5Checksum', None),
+            metadata.get('headRevisionId', None),
+            metadata.get('capabilities', {}).get('canDownload', False),
         )
 
 
