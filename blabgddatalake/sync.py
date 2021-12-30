@@ -14,8 +14,7 @@ from .local.gwfile import LocalGoogleWorkspaceFile, LocalExportedGWFileVersion
 from .local.file import LocalFile, LocalDirectory
 from .local.localdb import LocalStorageDatabase
 from .local.regularfile import LocalRegularFile, LocalFileRevision
-from .remote.directory import RemoteDirectory
-from .remote.file import RemoteFile
+from .remote.file import RemoteDirectory, RemoteFile
 from .remote.gwfile import RemoteGoogleWorkspaceFile
 from .remote.gd import GoogleDriveService as GDService
 from .remote.regularfile import RemoteRegularFile

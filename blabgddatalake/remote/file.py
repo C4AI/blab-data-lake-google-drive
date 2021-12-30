@@ -1,12 +1,16 @@
 """Contains a class that represents a file or a directory on Google Drive."""
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
+from dateutil import parser as timestamp_parser
+from structlog import getLogger
+from typing import Any
 
-import blabgddatalake.remote.directory as directory
+from blabgddatalake.common import NonLeafTreeNode, TreeNode
 
-from blabgddatalake.common import TreeNode
+
+_logger = getLogger(__name__)
 
 
 @dataclass
@@ -37,7 +41,7 @@ class RemoteFile(TreeNode):
     icon_url: str
     """URL of the file icon (does not require authentication)"""
 
-    parent: directory.RemoteDirectory | None
+    parent: RemoteDirectory | None
     """Parent directory"""
 
     @property
@@ -48,3 +52,51 @@ class RemoteFile(TreeNode):
             The id of the parent directory, or ``None`` if this is the root
         """
         return p.id if (p := self.parent) is not None else None
+
+
+@dataclass
+class RemoteDirectory(RemoteFile, NonLeafTreeNode):
+    """Represents a directory stored on Google Drive."""
+
+    children: list[RemoteFile] = field(default_factory=list)
+    """Subdirectories and regular files in this directory"""
+
+    is_root: bool = False
+    """Whether this directory is the root specified in the settings
+        (not necessarily the root on Google Drive)"""
+
+    @classmethod
+    def from_dict(cls, metadata: dict[str, Any],
+                  parent: RemoteDirectory | None = None) -> RemoteDirectory:
+        """Create an instance from a dictionary with data from Google Drive.
+
+        Documentation is available
+        `here <https://developers.google.com/drive/api/v3/reference/files>`_.
+
+        Args:
+            metadata: a dictionary with file metadata
+            parent: the parent directory, if this is not the root
+
+        Returns:
+            an instance with the metadata obtained from ``f``
+
+        """
+        return RemoteDirectory(
+            metadata['name'], metadata['id'], metadata['mimeType'],
+            timestamp_parser.parse(metadata['createdTime']),
+            timestamp_parser.parse(metadata['modifiedTime']),
+            metadata['lastModifyingUser']['displayName'],
+            metadata['webViewLink'], metadata['iconLink'], parent
+        )
+
+    def flatten(self) -> dict[str, RemoteFile]:
+        """Convert the tree to a flat dictionary.
+
+        Returns:
+            a flat dictionary where files are mapped by their ids
+        """
+        d: dict[str, RemoteFile] = {self.id: self}
+        for c in self.children:
+            d.update(c.flatten() if isinstance(c, RemoteDirectory)
+                     else {c.id: c})
+        return d

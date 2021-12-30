@@ -11,11 +11,18 @@ from structlog import getLogger
 
 from blabgddatalake.config import GoogleDriveConfig
 from blabgddatalake.formats import ExportFormat
-import blabgddatalake.remote.directory as remotedir
+import blabgddatalake.remote.file as remotef
 import blabgddatalake.remote.regularfile as remoterf
 import blabgddatalake.remote.gwfile as remotegwf
 
+
 _logger = getLogger(__name__)
+
+_FILE_FIELDS = ', '.join(['id', 'name', 'parents', 'kind', 'mimeType',
+                          'webViewLink', 'md5Checksum', 'size', 'createdTime',
+                          'modifiedTime', 'lastModifyingUser',
+                          'headRevisionId', 'iconLink', 'capabilities'
+                          ])
 
 
 class GoogleDriveService:
@@ -57,16 +64,86 @@ class GoogleDriveService:
         s = build('drive', 'v3', credentials=cred, cache_discovery=False)
         return s
 
-    def get_tree(self) -> remotedir.RemoteDirectory:
+    def _fill_children(self, rd: remotef.RemoteDirectory) -> None:
+        service = self.service
+        gd_config = self.gd_config
+        q_items = ['not trashed']
+        if rd.id:
+            q_items.append(f"'{rd.id}' in parents")
+        q = ' and '.join(q_items)
+        shared_drive_id = gd_config.shared_drive_id
+        params = dict(
+            supportsAllDrives=bool(shared_drive_id),
+            includeItemsFromAllDrives=bool(shared_drive_id),
+            driveId=shared_drive_id or None,
+            corpora='drive' if shared_drive_id else 'user',
+            pageSize=int(gd_config.page_size),
+            fields=f'nextPageToken, files({_FILE_FIELDS})',
+            orderBy='folder, name',
+            q=q
+        )
+        page_token = None
+        children = []
+        page = 0
+        log = _logger.bind(id=rd.id)
+        while page_token is not None or page == 0:
+            request = service.files().list(
+                pageToken=page_token,
+                **params
+            )
+            log.debug('requesting directory', page=page)
+            results = request.execute(num_retries=self.num_retries)
+            children += results['files']
+            page_token = results.get('nextPageToken', None)
+            page += 1
+        for f in children:
+            node: remotef.RemoteFile
+            if f['mimeType'] == 'application/vnd.google-apps.folder':
+                subdir = remotef.RemoteDirectory.from_dict(f, rd)
+                self._fill_children(subdir)
+                node = subdir
+            elif f['mimeType'].startswith('application/vnd.google-apps.'):
+                rgwf = remotegwf.RemoteGoogleWorkspaceFile.from_dict(f, rd)
+                rgwf.export_extensions = list(map(
+                    lambda fmt: str(fmt.extension),
+                    self.export_formats().get(f['mimeType'], [])))
+                node = rgwf
+            else:
+                rrf = remoterf.RemoteRegularFile.from_dict(f, rd)
+                node = rrf
+            rd.children.append(node)
+
+    def get_tree(self) -> remotef.RemoteDirectory:
         """Fetch and return the directory tree from Google Drive.
 
         There is no depth limit.
 
+        Raises:
+            ValueError: \
+                if sub-tree root id and shared drive id are
+                both undefined
+
         Returns:
             an object representing the root directory defined
-            by the ``sub_tree_root_id`` field of :attr:`gd_config`.
+            by the ``SubTreeRootId`` field of `gd_config`.
         """
-        return remotedir.RemoteDirectory.get_tree(self, self.gd_config)
+        gd_config = self.gd_config
+        service = self.service
+        this_id = gd_config.sub_tree_root_id or gd_config.shared_drive_id
+        shared_drive_id = gd_config.shared_drive_id
+        if not this_id:
+            raise ValueError('root id cannot be empty or None')
+        request = service.files().get(
+            fileId=this_id,
+            supportsAllDrives=bool(shared_drive_id),
+            fields=_FILE_FIELDS,
+        )
+        _logger.debug('requesting root directory', id=this_id)
+        f = request.execute(num_retries=self.num_retries)
+        root = remotef.RemoteDirectory.from_dict(f)
+        root.is_root = True
+        self._fill_children(root)
+        return root
 
     @lru_cache(maxsize=1)
     def export_formats(self) -> dict[str, list[ExportFormat]]:

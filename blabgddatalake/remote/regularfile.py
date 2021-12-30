@@ -12,7 +12,7 @@ from dateutil import parser as timestamp_parser
 from googleapiclient.http import MediaIoBaseDownload
 
 import blabgddatalake.remote.gd as gd
-import blabgddatalake.remote.directory as directory
+import blabgddatalake.remote.file as file
 from blabgddatalake.remote.file import RemoteFile
 
 _logger = getLogger(__name__)
@@ -101,7 +101,7 @@ class RemoteRegularFile(RemoteFile):
 
     @classmethod
     def from_dict(cls, metadata: dict[str, Any],
-                  parent: directory.RemoteDirectory | None = None
+                  parent: file.RemoteDirectory | None = None
                   ) -> RemoteRegularFile:
         """Create an instance from a dictionary with data from Google Drive.
 
@@ -116,9 +116,9 @@ class RemoteRegularFile(RemoteFile):
             an instance with the metadata obtained from ``f``
 
         """
-        return RemoteRegularFile(  # type:ignore[call-arg]
+        return RemoteRegularFile(
             metadata['name'], metadata['id'], metadata['mimeType'],
-            timestamp_parser.parse(metadata['createdTime']),  # type:ignore
+            timestamp_parser.parse(metadata['createdTime']),
             timestamp_parser.parse(metadata['modifiedTime']),
             metadata['lastModifyingUser']['displayName'],
             metadata['webViewLink'], metadata['iconLink'], parent,
