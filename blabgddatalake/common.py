@@ -1,9 +1,14 @@
+"""Contains some useful components used by both local and remote modules."""
+
 from overrides import overrides
 from typing import Any
 
 
 class TreeNode:
+    """Represents a node of a tree (e.g. a file or directory)."""
+
     name: str
+    """Node name (e.g. file name)"""
 
     def print_tree(self, _pfx: list[bool] | None = None) -> None:
         """Print the tree file names to standard output (for debugging)."""
@@ -17,7 +22,10 @@ class TreeNode:
 
 
 class NonLeafTreeNode(TreeNode):
+    """Represents a node of a tree (e.g. a file or directory)."""
+
     children: Any  # list of TreeNode
+    """list of children (:class:`TreeNode`)"""
 
     @overrides
     def print_tree(self, _pfx: list[bool] | None = None) -> None:
