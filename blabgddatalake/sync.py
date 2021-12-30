@@ -78,8 +78,8 @@ class GoogleDriveSync:
             for f in self.db.get_obsolete_files(session, until):
                 session.delete(f)
             for name, obsolete_since in to_delete:
-                log = _logger.bind(
-                    name=name, marked_for_deletion_at=obsolete_since)
+                log = _logger.bind(name=name,
+                                   marked_for_deletion_at=obsolete_since)
                 try:
                     os_delete_file(name)
                 except FileNotFoundError:
@@ -106,8 +106,10 @@ class GoogleDriveSync:
         return {k: getattr(obj, k, None) for k in attrs}
 
     def _local_file_from_remote_file(self, rf: RemoteFile) -> LocalFile:
-        fields = ['id', 'name', 'mime_type', 'created_time', 'modified_time',
-                  'modified_by', 'web_url', 'icon_url', 'parent_id']
+        fields = [
+            'id', 'name', 'mime_type', 'created_time', 'modified_time',
+            'modified_by', 'web_url', 'icon_url', 'parent_id'
+        ]
         if isinstance(rf, RemoteDirectory):
             return LocalDirectory(**self._getattrs(rf, fields + ['is_root']))
         elif isinstance(rf, RemoteRegularFile):
@@ -119,8 +121,10 @@ class GoogleDriveSync:
 
     def _revision_from_remote_file(self, rf: RemoteRegularFile) \
             -> LocalFileRevision:
-        fields = ['name', 'mime_type', 'can_download', 'size',
-                  'modified_time', 'modified_by', 'md5_checksum']
+        fields = [
+            'name', 'mime_type', 'can_download', 'size', 'modified_time',
+            'modified_by', 'md5_checksum'
+        ]
         return LocalFileRevision(file_id=rf.id,
                                  revision_id=rf.head_revision_id,
                                  **self._getattrs(rf, fields))
@@ -129,9 +133,11 @@ class GoogleDriveSync:
     def _gwversion_from_remote_file(cls, rf: RemoteGoogleWorkspaceFile,
                                     extensions: list[str]) \
             -> LocalExportedGWFileVersion:
-        fields = ['modified_time', 'modified_by', 'mime_type', 'name',
-                  'can_export']
-        return LocalExportedGWFileVersion(file_id=rf.id, extensions=extensions,
+        fields = [
+            'modified_time', 'modified_by', 'mime_type', 'name', 'can_export'
+        ]
+        return LocalExportedGWFileVersion(file_id=rf.id,
+                                          extensions=extensions,
                                           **cls._getattrs(rf, fields))
 
     @cached_property
@@ -141,38 +147,35 @@ class GoogleDriveSync:
     @cached_property
     def _chosen_export_formats(self) -> dict[str, list[ExportFormat]]:
         formats = self.config.google_drive.google_workspace_export_formats
-        return {
-            ('application/vnd.google-apps.' + t): fmt
-            for t, fmt in formats.items()
-        }
+        return {('application/vnd.google-apps.' + t): fmt
+                for t, fmt in formats.items()}
 
     @cached_property
     def _unsupported_export_formats(self) -> dict[str, set[ExportFormat]]:
         return {
-            t:
-                set(chosen) - set(self._supported_export_formats.get(t, []))
+            t: set(chosen) - set(self._supported_export_formats.get(t, []))
             for t, chosen in self._chosen_export_formats.items()
         }
 
     @cached_property
     def _export_formats(self) -> dict[str, list[ExportFormat]]:
         return {  # formats that are supported AND chosen
-            t: sorted(set(available) & set(
-                self._chosen_export_formats.get(t, [])))
+            t: sorted(
+                set(available) & set(self._chosen_export_formats.get(t, [])))
             for t, available in self._supported_export_formats.items()
         }
 
     def _contents_changed(self, rf: RemoteFile, lf: LocalFile) -> bool:
         if isinstance(lf, LocalRegularFile):
             rrf = cast(RemoteRegularFile, rf)
-            return (rrf.head_revision_id != lf.head_revision_id or
-                    rrf.can_download != lf.can_download)
+            return (rrf.head_revision_id != lf.head_revision_id
+                    or rrf.can_download != lf.can_download)
         elif isinstance(lf, LocalGoogleWorkspaceFile):
             rgwf = cast(RemoteGoogleWorkspaceFile, rf)
-            return (rf.modified_time > lf.modified_time or
-                    rgwf.can_export != lf.can_export or
-                    list(map(lambda fmt: fmt.extension,
-                             self._export_formats.get(rf.mime_type, []))) !=
+            return (rf.modified_time > lf.modified_time
+                    or rgwf.can_export != lf.can_export or list(
+                        map(lambda fmt: fmt.extension,
+                            self._export_formats.get(rf.mime_type, []))) !=
                     lf.head_version.extensions)
         else:
             return False
@@ -187,29 +190,34 @@ class GoogleDriveSync:
         return self.gdservice.export_file(f, formats, str(fn))
 
     def _update(self, rf: RemoteFile, lf: LocalFile) -> bool:
-        fields = ['id', 'name', 'mime_type', 'created_time',
-                  'modified_time',
-                  'modified_by', 'web_url', 'icon_url', 'parent_id']
+        fields = [
+            'id', 'name', 'mime_type', 'created_time', 'modified_time',
+            'modified_by', 'web_url', 'icon_url', 'parent_id'
+        ]
         changed = False
         if isinstance(rf, RemoteDirectory) and \
                 isinstance(lf, LocalDirectory):
             fields += ['is_root']
         elif isinstance(rf, RemoteGoogleWorkspaceFile):
-            ver_fields = ['name', 'mime_type', 'modified_time',
-                          'modified_by', 'obsolete_since', 'can_export']
+            ver_fields = [
+                'name', 'mime_type', 'modified_time', 'modified_by',
+                'obsolete_since', 'can_export'
+            ]
             ver = cast(LocalGoogleWorkspaceFile, lf).head_version
             if self._make_fields_equal(ver, rf, ver_fields) != 0:
                 changed = True
-            ext = list(map(lambda fmt: fmt.extension,
-                           self._export_formats.get(rf.mime_type, [])))
+            ext = list(
+                map(lambda fmt: fmt.extension,
+                    self._export_formats.get(rf.mime_type, [])))
             if ver.extensions != ext or []:
                 ver.extensions = ext or []
                 changed = True
         elif isinstance(rf, RemoteRegularFile):
             fields += ['head_revision_id']
-            rev_fields = ['name', 'mime_type', 'can_download', 'size',
-                          'modified_time', 'modified_by',
-                          'md5_checksum', 'obsolete_since']
+            rev_fields = [
+                'name', 'mime_type', 'can_download', 'size', 'modified_time',
+                'modified_by', 'md5_checksum', 'obsolete_since'
+            ]
             rev = cast(LocalRegularFile, lf).head_revision
             if self._make_fields_equal(rev, rf, rev_fields) != 0:
                 changed = True
@@ -229,8 +237,7 @@ class GoogleDriveSync:
         if not lf:
             lf = self._local_file_from_remote_file(rf)
             session.add(lf)
-        log = _logger.bind(id=rf.id, name=rf.name,
-                           mime_type=rf.mime_type)
+        log = _logger.bind(id=rf.id, name=rf.name, mime_type=rf.mime_type)
         if isinstance(lf, LocalRegularFile):
             rrf = cast(RemoteRegularFile, rf)
             rev = lf.head_revision
@@ -282,7 +289,8 @@ class GoogleDriveSync:
             if missing:
                 unsup = set(map(lambda fmt: fmt.extension, missing))
                 _logger.warn('Unsupported export format(s) for type',
-                             unsupported_formats=unsup, type=ftype)
+                             unsupported_formats=unsup,
+                             type=ftype)
 
         with self.db.new_session() as session:
 
@@ -318,9 +326,8 @@ class GoogleDriveSync:
                             log.info('old file revision marked for deletion')
                     elif isinstance(lf, LocalGoogleWorkspaceFile):
                         old_ver = lf.head_version
-                        if (old_ver.modified_time <
-                                cast(RemoteGoogleWorkspaceFile, f)
-                                .modified_time):
+                        if (old_ver.modified_time < cast(
+                                RemoteGoogleWorkspaceFile, f).modified_time):
                             old_ver.obsolete_since = datetime.now()
                             log.info('old GW file version marked for deletion')
                     self._sync_new_file(session, f, lf)

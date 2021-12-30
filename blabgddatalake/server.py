@@ -77,11 +77,12 @@ def download(file_id: str, revision_id: str | None = None) -> Response | None:
         fn = directory.resolve() / rev.local_name
         log.info('sending file contents', local_name=fn)
         try:
-            return send_file(fn,  # type: ignore[no-any-return]
-                             mimetype=f.mime_type,
-                             download_name=f.name,
-                             last_modified=f.modified_time,
-                             as_attachment=True)
+            return send_file(  # type: ignore[no-any-return]
+                fn,
+                mimetype=f.mime_type,
+                download_name=f.name,
+                last_modified=f.modified_time,
+                as_attachment=True)
         except FileNotFoundError:
             # should not happen
             abort(503)
@@ -126,11 +127,12 @@ def export(file_id: str) -> Response | None:
         log.info('sending exported file contents', local_name=fn)
         try:
             mt = ExportFormat.from_extension(extension).mime_type
-            return send_file(fn,  # type: ignore[no-any-return]
-                             mimetype=mt,
-                             download_name=f.name + '.' + extension,
-                             last_modified=f.modified_time,
-                             as_attachment=True)
+            return send_file(  # type: ignore[no-any-return]
+                fn,
+                mimetype=mt,
+                download_name=f.name + '.' + extension,
+                last_modified=f.modified_time,
+                as_attachment=True)
         except FileNotFoundError:
             # should not happen
             abort(503)

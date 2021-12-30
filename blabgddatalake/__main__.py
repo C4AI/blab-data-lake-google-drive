@@ -27,14 +27,14 @@ def parse_args(args: list[str]) -> argparse.Namespace:
     """
     parser = argparse.ArgumentParser()
     verbosity = parser.add_mutually_exclusive_group()
-    verbosity.add_argument(
-        '--debug', '-d',
-        help='show verbose log for debugging',
-        action='store_true')
-    verbosity.add_argument(
-        '--quiet', '-q',
-        help='print only warnings and errors',
-        action='store_true')
+    verbosity.add_argument('--debug',
+                           '-d',
+                           help='show verbose log for debugging',
+                           action='store_true')
+    verbosity.add_argument('--quiet',
+                           '-q',
+                           help='print only warnings and errors',
+                           action='store_true')
 
     def non_negative_float(s: str) -> float:
         try:
@@ -55,18 +55,18 @@ def parse_args(args: list[str]) -> argparse.Namespace:
         else:
             if 1 <= n <= 65535:
                 return n
-        raise argparse.ArgumentTypeError(
-            f"invalid port value: '{s}'")
+        raise argparse.ArgumentTypeError(f"invalid port value: '{s}'")
 
     subparsers = parser.add_subparsers(dest='cmd', required=True)
-    subparsers.add_parser(
-        'sync', help='synchronise contents from Google Drive')
+    subparsers.add_parser('sync',
+                          help='synchronise contents from Google Drive')
     parser_cleanup = subparsers.add_parser(
         'cleanup',
-        help='delete local files that have been deleted or overwritten ' +
-             'on Google Drive')
-    parser_cleanup.add_argument(
-        '--delay', help='deletion delay', type=non_negative_float)
+        help='delete local files that have been deleted or overwritten '
+        'on Google Drive')
+    parser_cleanup.add_argument('--delay',
+                                help='deletion delay',
+                                type=non_negative_float)
     subparsers.add_parser(
         'printlocal',
         help='display a tree of the files downloaded from Google Drive')
@@ -74,8 +74,10 @@ def parse_args(args: list[str]) -> argparse.Namespace:
         'printremote',
         help='display a tree of the files available on Google Drive')
     parser_runserver = subparsers.add_parser('serve', help='start server')
-    parser_runserver.add_argument(
-        '--port', '-p', help='server port', type=port)
+    parser_runserver.add_argument('--port',
+                                  '-p',
+                                  help='server port',
+                                  type=port)
 
     return parser.parse_args(args)
 
@@ -91,15 +93,18 @@ def setup_logger(level: int) -> None:
         level: the logger level
     """
     from sys import stdout
-    logging.basicConfig(level=logging.INFO, format="%(message)s",
-                        stream=stdout, )
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(message)s",
+        stream=stdout,
+    )
     structlog.configure(
         wrapper_class=structlog.make_filtering_bound_logger(level))
 
 
 options = parse_args(sys.argv[1:])
-setup_logger(logging.DEBUG if options.debug else
-             logging.WARNING if options.quiet else logging.INFO)
+setup_logger(logging.DEBUG if options.debug else logging.WARNING if options.
+             quiet else logging.INFO)
 
 settings_fn = 'blab-data-lake-settings.cfg'
 config = Config.read_settings(settings_fn)

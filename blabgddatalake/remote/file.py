@@ -9,7 +9,6 @@ from typing import Any
 
 from blabgddatalake.common import NonLeafTreeNode, TreeNode
 
-
 _logger = getLogger(__name__)
 
 
@@ -66,7 +65,8 @@ class RemoteDirectory(RemoteFile, NonLeafTreeNode):
         (not necessarily the root on Google Drive)"""
 
     @classmethod
-    def from_dict(cls, metadata: dict[str, Any],
+    def from_dict(cls,
+                  metadata: dict[str, Any],
                   parent: RemoteDirectory | None = None) -> RemoteDirectory:
         """Create an instance from a dictionary with data from Google Drive.
 
@@ -86,8 +86,7 @@ class RemoteDirectory(RemoteFile, NonLeafTreeNode):
             timestamp_parser.parse(metadata['createdTime']),
             timestamp_parser.parse(metadata['modifiedTime']),
             metadata['lastModifyingUser']['displayName'],
-            metadata['webViewLink'], metadata['iconLink'], parent
-        )
+            metadata['webViewLink'], metadata['iconLink'], parent)
 
     def flatten(self) -> dict[str, RemoteFile]:
         """Convert the tree to a flat dictionary.
@@ -97,6 +96,6 @@ class RemoteDirectory(RemoteFile, NonLeafTreeNode):
         """
         d: dict[str, RemoteFile] = {self.id: self}
         for c in self.children:
-            d.update(c.flatten() if isinstance(c, RemoteDirectory)
-                     else {c.id: c})
+            d.update(
+                c.flatten() if isinstance(c, RemoteDirectory) else {c.id: c})
         return d

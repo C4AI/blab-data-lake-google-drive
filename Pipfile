@@ -21,18 +21,19 @@ sphinx-rtd-theme = "*"
 sphinx-autodoc-typehints = "*"
 sphinx-paramlinks = "*"
 # style checkers
+darglint = "*"
 flake8 = "*"
-flake8-docstrings = "*"
 flake8-annotations = "*"
+flake8-docstrings = "*"
+flake8-bugbear = "*"
 types-waitress = "*"
 types-python-dateutil = "*"
 types-Werkzeug = "*"
-pyupgrade = "*"
 python-lsp-server = {extras = ["all"], version = "*"}
-darglint = "*"
+pyupgrade = "*"
 mypy = "*"
+yapf = "*"
 # etc
-flake8-bugbear = "*"
 
 [requires]
 python_version = "3.10"

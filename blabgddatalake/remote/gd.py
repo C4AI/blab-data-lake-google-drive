@@ -18,14 +18,13 @@ import blabgddatalake.remote.file as remotef
 import blabgddatalake.remote.regularfile as remoterf
 import blabgddatalake.remote.gwfile as remotegwf
 
-
 _logger = getLogger(__name__)
 
-_FILE_FIELDS = ', '.join(['id', 'name', 'parents', 'kind', 'mimeType',
-                          'webViewLink', 'md5Checksum', 'size', 'createdTime',
-                          'modifiedTime', 'lastModifyingUser',
-                          'headRevisionId', 'iconLink', 'capabilities'
-                          ])
+_FILE_FIELDS = ', '.join([
+    'id', 'name', 'parents', 'kind', 'mimeType', 'webViewLink', 'md5Checksum',
+    'size', 'createdTime', 'modifiedTime', 'lastModifyingUser',
+    'headRevisionId', 'iconLink', 'capabilities'
+])
 
 
 class GoogleDriveService:
@@ -35,7 +34,8 @@ class GoogleDriveService:
     from a Google Drive directory or shared drive.
     """
 
-    def __init__(self, gd_config: GoogleDriveConfig,
+    def __init__(self,
+                 gd_config: GoogleDriveConfig,
                  _http: Http | None = None,
                  _service: Resource | None = None):
         """
@@ -63,32 +63,27 @@ class GoogleDriveService:
         s = build('drive', 'v3', credentials=cred, cache_discovery=False)
         return s
 
-    def _fetch_children(self, rd: remotef.RemoteDirectory
-                        ) -> list[dict[str, Any]]:
+    def _fetch_children(self,
+                        rd: remotef.RemoteDirectory) -> list[dict[str, Any]]:
         q_items = ['not trashed']
         if rd.id:
             q_items.append(f"'{rd.id}' in parents")
         q = ' and '.join(q_items)
         shared_drive_id = self.gd_config.shared_drive_id
-        params = dict(
-            supportsAllDrives=bool(shared_drive_id),
-            includeItemsFromAllDrives=bool(shared_drive_id),
-            driveId=shared_drive_id or None,
-            corpora='drive' if shared_drive_id else 'user',
-            pageSize=int(self.gd_config.page_size),
-            fields=f'nextPageToken, files({_FILE_FIELDS})',
-            orderBy='folder, name',
-            q=q
-        )
+        params = dict(supportsAllDrives=bool(shared_drive_id),
+                      includeItemsFromAllDrives=bool(shared_drive_id),
+                      driveId=shared_drive_id or None,
+                      corpora='drive' if shared_drive_id else 'user',
+                      pageSize=int(self.gd_config.page_size),
+                      fields=f'nextPageToken, files({_FILE_FIELDS})',
+                      orderBy='folder, name',
+                      q=q)
         page_token = None
         children = []
         page = 0
         log = _logger.bind(id=rd.id)
         while page_token is not None or page == 0:
-            request = self.service.files().list(
-                pageToken=page_token,
-                **params
-            )
+            request = self.service.files().list(pageToken=page_token, **params)
             log.debug('requesting directory', page=page)
             results = request.execute(num_retries=self.num_retries)
             children += results['files']
@@ -142,8 +137,8 @@ class GoogleDriveService:
         request = self.service.files().get_media(fileId=file_id)
         return self._dl_media(request, output_file)
 
-    def fetch_exported_gw_file_contents(
-            self, file_id: str, output_file: str, mime_type: str) -> bool:
+    def fetch_exported_gw_file_contents(self, file_id: str, output_file: str,
+                                        mime_type: str) -> bool:
         """Download an exported Google Workspace file from Google Drive.
 
         Note:
@@ -172,9 +167,9 @@ class GoogleDriveService:
                 node = subdir
             elif f['mimeType'].startswith('application/vnd.google-apps.'):
                 rgwf = remotegwf.RemoteGoogleWorkspaceFile.from_dict(f, rd)
-                rgwf.export_extensions = list(map(
-                    lambda fmt: str(fmt.extension),
-                    self.export_formats().get(f['mimeType'], [])))
+                rgwf.export_extensions = list(
+                    map(lambda fmt: str(fmt.extension),
+                        self.export_formats().get(f['mimeType'], [])))
                 node = rgwf
             else:
                 rrf = remoterf.RemoteRegularFile.from_dict(f, rd)
@@ -195,8 +190,8 @@ class GoogleDriveService:
             an object representing the root directory defined
             by the ``SubTreeRootId`` field of `gd_config`.
         """
-        this_id = (self.gd_config.sub_tree_root_id or
-                   self.gd_config.shared_drive_id)
+        this_id = (self.gd_config.sub_tree_root_id
+                   or self.gd_config.shared_drive_id)
         if not this_id:
             raise ValueError('root id cannot be empty or None')
         _logger.debug('requesting root directory', id=this_id)
@@ -216,9 +211,10 @@ class GoogleDriveService:
         """
         request = self.service.about().get(fields='exportFormats')
         result = request.execute(num_retries=self.num_retries)
-        return {k: list(map(
-            lambda mt: ExportFormat.from_mime_type(mt), v))
-            for k, v in result['exportFormats'].items()}
+        return {
+            k: list(map(lambda mt: ExportFormat.from_mime_type(mt), v))
+            for k, v in result['exportFormats'].items()
+        }
 
     @property
     def num_retries(self) -> int:
@@ -237,7 +233,8 @@ class GoogleDriveService:
         """
         return self.gd_config.retries
 
-    def download_file(self, rf: remoterf.RemoteRegularFile,
+    def download_file(self,
+                      rf: remoterf.RemoteRegularFile,
                       output_file: str,
                       skip_if_size_matches: bool = True,
                       also_check_md5: bool = False) -> bool | None:
@@ -267,7 +264,8 @@ class GoogleDriveService:
                     return None
                 if rf._md5(output_file) == rf.md5_checksum:
                     log.info('skipping download, size and hash match',
-                             size=rf.size, md5_checksum=rf.md5_checksum)
+                             size=rf.size,
+                             md5_checksum=rf.md5_checksum)
                     return None
         log.info('downloading file')
         self.fetch_regular_file_contents(rf.id, output_file)
@@ -290,15 +288,14 @@ class GoogleDriveService:
             ``True`` if the download completed successfully,
             ``False`` if some error occurred
         """
-        log = _logger.bind(id=rf.id, name=rf.name,
+        log = _logger.bind(id=rf.id,
+                           name=rf.name,
                            local_name_without_ext=output_file_without_ext)
         log.info('downloading exported file')
         for fmt in formats:
             ok = self.fetch_exported_gw_file_contents(
-                rf.id,
-                output_file_without_ext + '.' + fmt.extension,
-                fmt.mime_type
-            )
+                rf.id, output_file_without_ext + '.' + fmt.extension,
+                fmt.mime_type)
             if not ok:
                 return False
         return True

@@ -9,7 +9,6 @@ from typing import Any
 
 from dateutil import parser as timestamp_parser
 
-
 import blabgddatalake.remote.file as file
 from blabgddatalake.remote.file import RemoteFile
 
@@ -42,9 +41,8 @@ class RemoteRegularFile(RemoteFile):
         Returns:
             Local file name
         """
-        return (self.id +
-                '_' + (self.head_revision_id or '') +
-                '_' + (self.md5_checksum or ''))
+        return (self.id + '_' + (self.head_revision_id or '') + '_' +
+                (self.md5_checksum or ''))
 
     @classmethod
     def _md5(cls, fn: str) -> str:
@@ -55,9 +53,10 @@ class RemoteRegularFile(RemoteFile):
         return md5_hash.hexdigest()
 
     @classmethod
-    def from_dict(cls, metadata: dict[str, Any],
-                  parent: file.RemoteDirectory | None = None
-                  ) -> RemoteRegularFile:
+    def from_dict(
+            cls,
+            metadata: dict[str, Any],
+            parent: file.RemoteDirectory | None = None) -> RemoteRegularFile:
         """Create an instance from a dictionary with data from Google Drive.
 
         Documentation is available
@@ -69,14 +68,17 @@ class RemoteRegularFile(RemoteFile):
 
         Returns:
             an instance with the metadata obtained from ``f``
-
         """
         return RemoteRegularFile(
-            metadata['name'], metadata['id'], metadata['mimeType'],
+            metadata['name'],
+            metadata['id'],
+            metadata['mimeType'],
             timestamp_parser.parse(metadata['createdTime']),
             timestamp_parser.parse(metadata['modifiedTime']),
             metadata['lastModifyingUser']['displayName'],
-            metadata['webViewLink'], metadata['iconLink'], parent,
+            metadata['webViewLink'],
+            metadata['iconLink'],
+            parent,
             int(s) if (s := metadata.get('size', None)) is not None else 0,
             metadata.get('md5Checksum', None),
             metadata.get('headRevisionId', None),
