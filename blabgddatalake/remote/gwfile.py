@@ -7,10 +7,7 @@ from structlog import getLogger
 from typing import Any
 
 from dateutil import parser as timestamp_parser
-from googleapiclient.http import MediaIoBaseDownload
 
-from blabgddatalake.formats import ExportFormat
-import blabgddatalake.remote.gd as gd
 import blabgddatalake.remote.file as file
 from blabgddatalake.remote.file import RemoteFile
 
@@ -36,41 +33,6 @@ class RemoteGoogleWorkspaceFile(RemoteFile):
         """
         return (self.id + '_' +
                 self.modified_time.strftime('%Y%m%d_%H%M%S%f'))
-
-    def export(self, gdservice: gd.GoogleDriveService,
-               formats: list[ExportFormat],
-               file_name_without_extension: str) -> bool | None:
-        """Download exported versions of the file.
-
-        Args:
-            gdservice: Google Drive service
-            formats: list of formats
-            file_name_without_extension: local file name without extension
-                to store the contents
-
-        Returns:
-            ``True`` if the download completed successfully,
-            ``False`` if some error occurred and
-            ``None`` if download was skipped because the file already existed
-        """
-        service = gdservice.service
-        log = _logger.bind(id=self.id, name=self.name,
-                           local_name_without_ext=file_name_without_extension)
-
-        log.info('downloading exported file')
-        for fmt in formats:
-            file_name = file_name_without_extension + '.' + fmt.extension
-            with open(file_name, 'wb') as fd:
-                request = service.files().export(
-                    fileId=self.id,
-                    mimeType=fmt.mime_type,
-                )
-                downloader = MediaIoBaseDownload(fd, request)
-                completed = False
-                while not completed:
-                    status, completed = downloader.next_chunk(
-                        num_retries=gdservice.num_retries)
-        return True
 
     @classmethod
     def from_dict(cls, metadata: dict[str, Any],

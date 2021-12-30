@@ -6,7 +6,9 @@ from functools import lru_cache
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import Resource, build
+from googleapiclient.http import MediaIoBaseDownload
 from httplib2 import Http
+from pathlib import Path
 from structlog import getLogger
 
 from blabgddatalake.config import GoogleDriveConfig
@@ -159,30 +161,6 @@ class GoogleDriveService:
             lambda mt: ExportFormat.from_mime_type(mt), v))
             for k, v in result['exportFormats'].items()}
 
-    def download_file(self, file: remoterf.RemoteRegularFile,
-                      output_file: str,
-                      skip_if_size_matches: bool = True,
-                      also_check_md5: bool = False) -> bool | None:
-        """Download a file from Google Drive.
-
-        This method does not apply to Google Workspace files.
-
-        Args:
-            file: the file to download
-            output_file: local file where the contents will be saved
-            skip_if_size_matches: do not download if file already exists
-                and its size matches the expected value
-            also_check_md5: in addition to the size, also check file hash
-                and only skip the download if it matches
-
-        Returns:
-            ``True`` if the download completed successfully,
-            ``False`` if some error occurred and
-            ``None`` if download was skipped because the file already existed
-        """
-        return file.download(self, output_file,
-                             skip_if_size_matches, also_check_md5)
-
     @property
     def num_retries(self) -> int:
         """Return the number of times to retry the requests when they fail.
@@ -200,7 +178,54 @@ class GoogleDriveService:
         """
         return self.gd_config.retries
 
-    def export_file(self, file: remotegwf.RemoteGoogleWorkspaceFile,
+    def download_file(self, rf: remoterf.RemoteRegularFile,
+                      output_file: str,
+                      skip_if_size_matches: bool = True,
+                      also_check_md5: bool = False) -> bool | None:
+        """Download a file from Google Drive.
+
+        This method does not apply to Google Workspace files.
+
+        Args:
+            rf: the file to download
+            output_file: local file where the contents will be saved
+            skip_if_size_matches: do not download if file already exists
+                and its size matches the expected value
+            also_check_md5: in addition to the size, also check file hash
+                and only skip the download if it matches
+
+        Returns:
+            ``True`` if the download completed successfully,
+            ``False`` if some error occurred and
+            ``None`` if download was skipped because the file already existed
+        """
+        service = self.service
+        log = _logger.bind(id=rf.id, name=rf.name, local_name=output_file)
+
+        if skip_if_size_matches:
+            p = Path(output_file)
+            if p.is_file() and p.stat().st_size == rf.size:
+                if not also_check_md5:
+                    log.info('skipping download, size matches', size=rf.size)
+                    return None
+                if rf._md5(output_file) == rf.md5_checksum:
+                    log.info('skipping download, size and hash match',
+                             size=rf.size, md5_checksum=rf.md5_checksum)
+                    return None
+        log.info('downloading file')
+        with open(output_file, 'wb') as fd:
+            request = service.files().get_media(
+                fileId=rf.id,
+            )
+            downloader = MediaIoBaseDownload(fd, request)
+            completed = False
+            while not completed:
+                status, completed = downloader.next_chunk(
+                    num_retries=self.num_retries)
+        return True
+
+
+    def export_file(self, rf: remotegwf.RemoteGoogleWorkspaceFile,
                     formats: list[ExportFormat],
                     output_file_without_extension: str) -> bool | None:
         """Download a file exported from Google Drive.
@@ -208,7 +233,7 @@ class GoogleDriveService:
         This method only applies to Google Workspace files.
 
         Args:
-            file: the file to download
+            rf: the file to download
             formats: list of formats
             output_file_without_extension: local file where the contents
                 will be saved
@@ -218,4 +243,21 @@ class GoogleDriveService:
             ``False`` if some error occurred and
             ``None`` if download was skipped because the file already existed
         """
-        return file.export(self, formats, output_file_without_extension)
+        service = self.service
+        log = _logger.bind(id=rf.id, name=rf.name,
+                           local_name_without_ext=output_file_without_extension)
+
+        log.info('downloading exported file')
+        for fmt in formats:
+            file_name = output_file_without_extension + '.' + fmt.extension
+            with open(file_name, 'wb') as fd:
+                request = service.files().export(
+                    fileId=rf.id,
+                    mimeType=fmt.mime_type,
+                )
+                downloader = MediaIoBaseDownload(fd, request)
+                completed = False
+                while not completed:
+                    status, completed = downloader.next_chunk(
+                        num_retries=self.num_retries)
+        return True
