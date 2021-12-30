@@ -6,9 +6,11 @@ from datetime import datetime
 
 import blabgddatalake.remote.directory as directory
 
+from blabgddatalake.common import TreeNode
+
 
 @dataclass
-class RemoteFile:
+class RemoteFile(TreeNode):
     """Represents a regular file or a directory stored on Google Drive."""
 
     name: str
@@ -46,13 +48,3 @@ class RemoteFile:
             The id of the parent directory, or ``None`` if this is the root
         """
         return p.id if (p := self.parent) is not None else None
-
-    def print_tree(self, _pfx: list[bool] | None = None) -> None:
-        """Print the tree file names to standard output (for debugging)."""
-        if _pfx is None:
-            _pfx = []
-        for p in _pfx[:-1]:
-            print(' ┃ ' if p else '   ', end=' ')
-        if _pfx:
-            print(' ┠─' if _pfx[-1] else ' ┖─', end=' ')
-        print(self.name)
