@@ -10,7 +10,7 @@ import structlog
 import sys
 
 from .config import Config
-from .locall.localdb import LocalStorageDatabase
+from .local.localdb import LocalStorageDatabase
 from .remote.gd import GoogleDriveService as GDService
 from .server import serve
 from .sync import sync, cleanup

@@ -10,13 +10,13 @@ from sqlalchemy.orm import relationship, backref
 from sys import maxsize
 from typing import Any
 
-import blabgddatalake.locall as locall
+import blabgddatalake.local as local
 import blabgddatalake.common as common
 
-_TimestampWithTZ = locall._TimestampWithTZ
+_TimestampWithTZ = local._TimestampWithTZ
 
 
-class LocalFile(locall.Base, common.TreeNode):
+class LocalFile(local.Base, common.TreeNode):
     """Represents a file or directory from Google Drive.
 
     Instances can be regular files, Google Workspace files or directories.

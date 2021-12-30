@@ -11,7 +11,6 @@ from typing import Any
 from dateutil import parser as timestamp_parser
 from googleapiclient.http import MediaIoBaseDownload
 
-from blabgddatalake.formats import ExportFormat
 import blabgddatalake.remote.gd as gd
 import blabgddatalake.remote.directory as directory
 from blabgddatalake.remote.file import RemoteFile
@@ -23,7 +22,7 @@ _logger = getLogger(__name__)
 class RemoteRegularFile(RemoteFile):
     """Represents a regular file stored on Google Drive.
 
-    Includes Google Workspace files.
+    Does not include Google Workspace files.
     """
 
     size: int
@@ -38,35 +37,16 @@ class RemoteRegularFile(RemoteFile):
     can_download: bool
     """Whether the file can be downloaded"""
 
-    export_extensions: list[str] | None = None
-    """Formats to which a Google Workspace file can be exported"""
-
     @property
     def local_name(self) -> str:
         """Local file name (without path).
 
-        For Google Workspace files, extension is not included.
-
         Returns:
             Local file name
         """
-        if self.is_google_workspace_file:
-            return (self.id + '_' +
-                    self.modified_time.strftime('%Y%m%d_%H%M%S%f'))
-        else:
-            return (self.id +
-                    '_' + (self.head_revision_id or '') +
-                    '_' + (self.md5_checksum or ''))
-
-    @property
-    def is_google_workspace_file(self) -> bool:
-        """Whether this is a Google Workspace file.
-
-        Returns:
-            ``True`` if and only if the MIME type starts
-            with ``application/vnd.google-apps``
-        """
-        return self.mime_type.startswith('application/vnd.google-apps')
+        return (self.id +
+                '_' + (self.head_revision_id or '') +
+                '_' + (self.md5_checksum or ''))
 
     @classmethod
     def _md5(cls, fn: str) -> str:
@@ -89,16 +69,11 @@ class RemoteRegularFile(RemoteFile):
             also_check_md5: in addition to the size, also check file hash
                 and only skip the download if it matches
 
-        This method does not apply to Google Workspace files.
-
         Returns:
             ``True`` if the download completed successfully,
             ``False`` if some error occurred and
             ``None`` if download was skipped because the file already existed
         """
-        if self.is_google_workspace_file:
-            return False
-
         service = gdservice.service
         log = _logger.bind(id=self.id, name=self.name, local_name=file_name)
 
@@ -124,46 +99,6 @@ class RemoteRegularFile(RemoteFile):
                     num_retries=gdservice.num_retries)
         return True
 
-    def export(self, gdservice: gd.GoogleDriveService,
-               formats: list[ExportFormat],
-               file_name_without_extension: str) -> bool | None:
-        """Download exported versions of the file.
-
-        Args:
-            gdservice: Google Drive service
-            formats: list of formats
-            file_name_without_extension: local file name without extension
-                to store the contents
-
-        This method only applies to to Google Workspace files.
-
-        Returns:
-            ``True`` if the download completed successfully,
-            ``False`` if some error occurred and
-            ``None`` if download was skipped because the file already existed
-        """
-        if not self.is_google_workspace_file:
-            return False
-
-        service = gdservice.service
-        log = _logger.bind(id=self.id, name=self.name,
-                           local_name_without_ext=file_name_without_extension)
-
-        log.info('downloading exported file')
-        for fmt in formats:
-            file_name = file_name_without_extension + '.' + fmt.extension
-            with open(file_name, 'wb') as fd:
-                request = service.files().export(
-                    fileId=self.id,
-                    mimeType=fmt.mime_type,
-                )
-                downloader = MediaIoBaseDownload(fd, request)
-                completed = False
-                while not completed:
-                    status, completed = downloader.next_chunk(
-                        num_retries=gdservice.num_retries)
-        return True
-
     @classmethod
     def from_dict(cls, metadata: dict[str, Any],
                   parent: directory.RemoteDirectory | None = None
@@ -184,7 +119,7 @@ class RemoteRegularFile(RemoteFile):
         return RemoteRegularFile(  # type:ignore[call-arg]
             metadata['name'], metadata['id'], metadata['mimeType'],
             timestamp_parser.parse(metadata['createdTime']),  # type:ignore
-            timestamp_parser.parse(metadata['modifiedTime']),  # type:ignore
+            timestamp_parser.parse(metadata['modifiedTime']),
             metadata['lastModifyingUser']['displayName'],
             metadata['webViewLink'], metadata['iconLink'], parent,
             int(s) if (s := metadata.get('size', None)) is not None else 0,

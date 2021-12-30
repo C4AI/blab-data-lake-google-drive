@@ -14,10 +14,10 @@ from structlog import getLogger
 
 from blabgddatalake import __version__
 from blabgddatalake.config import DatabaseConfig
-from blabgddatalake.locall import Base, DatabaseMetadata
-from blabgddatalake.locall.file import LocalFile, LocalDirectory
-from blabgddatalake.locall.regularfile import LocalFileRevision
-from blabgddatalake.locall.gwfile import LocalExportedGWFileVersion
+from blabgddatalake.local import Base, DatabaseMetadata
+from blabgddatalake.local.file import LocalFile, LocalDirectory
+from blabgddatalake.local.regularfile import LocalFileRevision
+from blabgddatalake.local.gwfile import LocalExportedGWFileVersion
 
 _logger = getLogger(__name__)
 

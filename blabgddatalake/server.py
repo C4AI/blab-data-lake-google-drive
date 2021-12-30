@@ -8,10 +8,10 @@ from waitress import serve as waitress_serve
 
 from .config import Config
 from .formats import ExportFormat
-from .locall.localdb import LocalStorageDatabase
-from .locall.gwfile import LocalGoogleWorkspaceFile
-from .locall.file import LocalFile
-from .locall.regularfile import LocalRegularFile
+from .local.localdb import LocalStorageDatabase
+from .local.gwfile import LocalGoogleWorkspaceFile
+from .local.file import LocalFile
+from .local.regularfile import LocalRegularFile
 
 _logger = getLogger(__name__)
 
