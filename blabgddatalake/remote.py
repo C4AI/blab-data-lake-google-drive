@@ -14,15 +14,15 @@ from httplib2 import Http
 from overrides import overrides
 from pathlib import Path
 from structlog import getLogger
+from typing import Any
 
 from .config import GoogleDriveConfig
 from .formats import ExportFormat
 
 _logger = getLogger(__name__)
 
-
 _FILE_FIELDS = ', '.join(['id', 'name', 'parents', 'kind', 'mimeType',
-                         'webViewLink', 'md5Checksum', 'size', 'createdTime',
+                          'webViewLink', 'md5Checksum', 'size', 'createdTime',
                           'modifiedTime', 'lastModifyingUser',
                           'headRevisionId', 'iconLink', 'capabilities'
                           ])
@@ -90,6 +90,30 @@ class RemoteDirectory(RemoteFile):
     """Whether this directory is the root specified in the settings
         (not necessarily the root on Google Drive)"""
 
+    @classmethod
+    def from_dict(cls, f: dict[str, Any],
+                  parent: RemoteDirectory | None = None) -> RemoteDirectory:
+        """Create an instance from a dictionary with data from Google Drive.
+
+        Documentation is available
+        `here <https://developers.google.com/drive/api/v3/reference/files>`_.
+
+        Args:
+            f: a dictionary with file metadata
+            parent: the parent directory, if this is not the root
+
+        Returns:
+            an instance with the metadata obtained from ``f``
+
+        """
+        return RemoteDirectory(
+            f['name'], f['id'], f['mimeType'],
+            timestamp_parser.parse(f['createdTime']),
+            timestamp_parser.parse(f['modifiedTime']),
+            f['lastModifyingUser']['displayName'],
+            f['webViewLink'], f['iconLink'], parent
+        )
+
     def _fill_children(self, gdservice: GoogleDriveService,
                        gd_config: GoogleDriveConfig) -> None:
         service = gdservice.service
@@ -123,29 +147,15 @@ class RemoteDirectory(RemoteFile):
             page_token = results.get('nextPageToken', None)
             page += 1
         for f in children:
-            metadata = [f['name'], f['id'], f['mimeType'],
-                        timestamp_parser.parse(f['createdTime']),
-                        timestamp_parser.parse(f['modifiedTime']),
-                        f['lastModifyingUser']['displayName'],
-                        f['webViewLink'], f['iconLink'],
-                        self,
-                        ]
             node: RemoteFile
             if f['mimeType'] == 'application/vnd.google-apps.folder':
-                node = RemoteDirectory(*metadata)
+                node = RemoteDirectory.from_dict(f, self)
                 node._fill_children(gdservice, gd_config)
             else:
-                export_extensions = list(map(
-                    lambda fmt: fmt.extension, gdservice.export_formats().get(
-                        f['mimeType'], [])))
-                file_metadata = [
-                    int(s) if (s := f.get('size', None)) is not None else None,
-                    f.get('md5Checksum', None),
-                    f.get('headRevisionId', None),
-                    f.get('capabilities', {}).get('canDownload', False),
-                    export_extensions
-                ]
-                node = RemoteRegularFile(*metadata, *file_metadata)
+                node = RemoteRegularFile.from_dict(f)
+                node.export_extensions = list(map(
+                    lambda fmt: str(fmt.extension),
+                    gdservice.export_formats().get(f['mimeType'], [])))
             self.children.append(node)
 
     @classmethod
@@ -159,6 +169,10 @@ class RemoteDirectory(RemoteFile):
             gdservice: Google Drive service
             gd_config: configuration parameters
 
+        Raises:
+            ValueError: sub-tree root id and shared drive id are both
+                undefined
+
         Returns:
             an object representing the root directory defined
             by the ``SubTreeRootId`` field of `gd_config`.
@@ -166,24 +180,17 @@ class RemoteDirectory(RemoteFile):
         service = gdservice.service
         this_id = gd_config.sub_tree_root_id or gd_config.shared_drive_id
         shared_drive_id = gd_config.shared_drive_id
-        if this_id:
-            request = service.files().get(
-                fileId=this_id,
-                supportsAllDrives=bool(shared_drive_id),
-                fields=_FILE_FIELDS,
-            )
-            _logger.debug('requesting root directory', id=this_id)
-            f = request.execute(num_retries=gdservice.num_retries)
-            metadata = [f['name'], f['id'], f['mimeType'],
-                        timestamp_parser.parse(f['createdTime']),
-                        timestamp_parser.parse(f['modifiedTime']),
-                        f['lastModifyingUser']['displayName'],
-                        f['webViewLink'], f['iconLink'],
-                        None,
-                        ]
-        else:
-            metadata = ['', None, None, None, None, None, None, None, None]
-        root = RemoteDirectory(*metadata, is_root=True)  # type: ignore
+        if not this_id:
+            raise ValueError('root id cannot be empty or None')
+        request = service.files().get(
+            fileId=this_id,
+            supportsAllDrives=bool(shared_drive_id),
+            fields=_FILE_FIELDS,
+        )
+        _logger.debug('requesting root directory', id=this_id)
+        f = request.execute(num_retries=gdservice.num_retries)
+        root = RemoteDirectory.from_dict(f)
+        root.is_root = True
         root._fill_children(gdservice, gd_config)
         return root
 
@@ -354,6 +361,35 @@ class RemoteRegularFile(RemoteFile):
                     status, completed = downloader.next_chunk(
                         num_retries=gdservice.num_retries)
         return True
+
+    @classmethod
+    def from_dict(cls, f: dict[str, Any],
+                  parent: RemoteDirectory | None = None
+                  ) -> RemoteRegularFile:
+        """Create an instance from a dictionary with data from Google Drive.
+
+        Documentation is available
+        `here <https://developers.google.com/drive/api/v3/reference/files>`_.
+
+        Args:
+            f: a dictionary with file metadata
+            parent: the parent directory, if this is not the root
+
+        Returns:
+            an instance with the metadata obtained from ``f``
+
+        """
+        return RemoteRegularFile(
+            f['name'], f['id'], f['mimeType'],
+            timestamp_parser.parse(f['createdTime']),
+            timestamp_parser.parse(f['modifiedTime']),
+            f['lastModifyingUser']['displayName'],
+            f['webViewLink'], f['iconLink'], parent,
+            int(s) if (s := f.get('size', None)) is not None else 0,
+            f.get('md5Checksum', None),
+            f.get('headRevisionId', None),
+            f.get('capabilities', {}).get('canDownload', False),
+        )
 
 
 class GoogleDriveService:
