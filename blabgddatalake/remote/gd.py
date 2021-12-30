@@ -6,10 +6,11 @@ from functools import lru_cache
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import Resource, build
-from googleapiclient.http import MediaIoBaseDownload
+from googleapiclient.http import HttpRequest, MediaIoBaseDownload
 from httplib2 import Http
 from pathlib import Path
 from structlog import getLogger
+from typing import Any, cast
 
 from blabgddatalake.config import GoogleDriveConfig
 from blabgddatalake.formats import ExportFormat
@@ -45,15 +46,11 @@ class GoogleDriveService:
             _http: used to make HTTP requests (usually should be `None`
                 except for testing purposes)
 
-        For a description of the expected keys and values of `gd_config`,
-        see the section ``GoogleDrive`` in
-        :download:`the documentation <../README_CONFIG.md>`.
-
         In most cases, `_service` should be omitted and the attribute
         :attr:`service` will be set to a fresh instance created by the
         constructor.
         """  # noqa:D205,D400
-        self.gd_config = gd_config
+        self.gd_config: GoogleDriveConfig = gd_config
         """Configuration parameters"""
 
         self.service: Resource = _service or self.__get_service()
@@ -66,20 +63,19 @@ class GoogleDriveService:
         s = build('drive', 'v3', credentials=cred, cache_discovery=False)
         return s
 
-    def _fill_children(self, rd: remotef.RemoteDirectory) -> None:
-        service = self.service
-        gd_config = self.gd_config
+    def _fetch_children(self, rd: remotef.RemoteDirectory
+                        ) -> list[dict[str, Any]]:
         q_items = ['not trashed']
         if rd.id:
             q_items.append(f"'{rd.id}' in parents")
         q = ' and '.join(q_items)
-        shared_drive_id = gd_config.shared_drive_id
+        shared_drive_id = self.gd_config.shared_drive_id
         params = dict(
             supportsAllDrives=bool(shared_drive_id),
             includeItemsFromAllDrives=bool(shared_drive_id),
             driveId=shared_drive_id or None,
             corpora='drive' if shared_drive_id else 'user',
-            pageSize=int(gd_config.page_size),
+            pageSize=int(self.gd_config.page_size),
             fields=f'nextPageToken, files({_FILE_FIELDS})',
             orderBy='folder, name',
             q=q
@@ -89,7 +85,7 @@ class GoogleDriveService:
         page = 0
         log = _logger.bind(id=rd.id)
         while page_token is not None or page == 0:
-            request = service.files().list(
+            request = self.service.files().list(
                 pageToken=page_token,
                 **params
             )
@@ -98,7 +94,77 @@ class GoogleDriveService:
             children += results['files']
             page_token = results.get('nextPageToken', None)
             page += 1
-        for f in children:
+        return children
+
+    def _fetch_file_metadata(self, file_id: str) -> dict[str, Any]:
+        request = self.service.files().get(
+            fileId=file_id,
+            supportsAllDrives=bool(self.gd_config.shared_drive_id),
+            fields=_FILE_FIELDS,
+        )
+        return cast(dict[str, Any],
+                    request.execute(num_retries=self.num_retries))
+
+    def _dl_media(self, request: HttpRequest, output_file: str) -> bool:
+        """Use MediaIoBaseDownload to download a file.
+
+        Args:
+            request: HTTP request
+            output_file: full path of the local output file
+
+        Returns:
+            whether the download completed successfully
+        """
+        with open(output_file, 'wb') as fd:
+            downloader = MediaIoBaseDownload(fd, request)
+            completed = False
+            while not completed:
+                status, completed = downloader.next_chunk(
+                    num_retries=self.num_retries)
+        return True
+
+    def fetch_regular_file_contents(self, file_id: str,
+                                    output_file: str) -> bool:
+        """Download a regular file from Google Drive.
+
+        This method does not apply to Google Workspace files.
+
+        Note:
+            This method is used internally by  :func:`download_file`.
+
+        Args:
+            file_id: id of the file to download
+            output_file: full path of the local output file
+
+        Returns:
+             whether the download completed successfully
+        """
+        request = self.service.files().get_media(fileId=file_id)
+        return self._dl_media(request, output_file)
+
+    def fetch_exported_gw_file_contents(
+            self, file_id: str, output_file: str, mime_type: str) -> bool:
+        """Download an exported Google Workspace file from Google Drive.
+
+        Note:
+            This method is used internally by :func:`export_file`.
+
+        Args:
+            file_id: id of the file to download
+            output_file: full path of the local output file
+            mime_type: MIME type
+
+        Returns:
+             whether the download completed successfully
+        """
+        request = self.service.files().export(
+            fileId=file_id,
+            mimeType=mime_type,
+        )
+        return self._dl_media(request, output_file)
+
+    def _fill_children(self, rd: remotef.RemoteDirectory) -> None:
+        for f in self._fetch_children(rd):
             node: remotef.RemoteFile
             if f['mimeType'] == 'application/vnd.google-apps.folder':
                 subdir = remotef.RemoteDirectory.from_dict(f, rd)
@@ -129,20 +195,13 @@ class GoogleDriveService:
             an object representing the root directory defined
             by the ``SubTreeRootId`` field of `gd_config`.
         """
-        gd_config = self.gd_config
-        service = self.service
-        this_id = gd_config.sub_tree_root_id or gd_config.shared_drive_id
-        shared_drive_id = gd_config.shared_drive_id
+        this_id = (self.gd_config.sub_tree_root_id or
+                   self.gd_config.shared_drive_id)
         if not this_id:
             raise ValueError('root id cannot be empty or None')
-        request = service.files().get(
-            fileId=this_id,
-            supportsAllDrives=bool(shared_drive_id),
-            fields=_FILE_FIELDS,
-        )
         _logger.debug('requesting root directory', id=this_id)
-        f = request.execute(num_retries=self.num_retries)
-        root = remotef.RemoteDirectory.from_dict(f)
+        root_data = self._fetch_file_metadata(this_id)
+        root = remotef.RemoteDirectory.from_dict(root_data)
         root.is_root = True
         self._fill_children(root)
         return root
@@ -199,9 +258,7 @@ class GoogleDriveService:
             ``False`` if some error occurred and
             ``None`` if download was skipped because the file already existed
         """
-        service = self.service
         log = _logger.bind(id=rf.id, name=rf.name, local_name=output_file)
-
         if skip_if_size_matches:
             p = Path(output_file)
             if p.is_file() and p.stat().st_size == rf.size:
@@ -213,21 +270,12 @@ class GoogleDriveService:
                              size=rf.size, md5_checksum=rf.md5_checksum)
                     return None
         log.info('downloading file')
-        with open(output_file, 'wb') as fd:
-            request = service.files().get_media(
-                fileId=rf.id,
-            )
-            downloader = MediaIoBaseDownload(fd, request)
-            completed = False
-            while not completed:
-                status, completed = downloader.next_chunk(
-                    num_retries=self.num_retries)
+        self.fetch_regular_file_contents(rf.id, output_file)
         return True
-
 
     def export_file(self, rf: remotegwf.RemoteGoogleWorkspaceFile,
                     formats: list[ExportFormat],
-                    output_file_without_extension: str) -> bool | None:
+                    output_file_without_ext: str) -> bool | None:
         """Download a file exported from Google Drive.
 
         This method only applies to Google Workspace files.
@@ -235,29 +283,22 @@ class GoogleDriveService:
         Args:
             rf: the file to download
             formats: list of formats
-            output_file_without_extension: local file where the contents
+            output_file_without_ext: path of the local file where the contents
                 will be saved
 
         Returns:
             ``True`` if the download completed successfully,
-            ``False`` if some error occurred and
-            ``None`` if download was skipped because the file already existed
+            ``False`` if some error occurred
         """
-        service = self.service
         log = _logger.bind(id=rf.id, name=rf.name,
-                           local_name_without_ext=output_file_without_extension)
-
+                           local_name_without_ext=output_file_without_ext)
         log.info('downloading exported file')
         for fmt in formats:
-            file_name = output_file_without_extension + '.' + fmt.extension
-            with open(file_name, 'wb') as fd:
-                request = service.files().export(
-                    fileId=rf.id,
-                    mimeType=fmt.mime_type,
-                )
-                downloader = MediaIoBaseDownload(fd, request)
-                completed = False
-                while not completed:
-                    status, completed = downloader.next_chunk(
-                        num_retries=self.num_retries)
+            ok = self.fetch_exported_gw_file_contents(
+                rf.id,
+                output_file_without_ext + '.' + fmt.extension,
+                fmt.mime_type
+            )
+            if not ok:
+                return False
         return True
