@@ -8,12 +8,12 @@ from waitress import serve as waitress_serve
 
 from .config import Config
 from .formats import ExportFormat
-from .local import LocalStorageDatabase, LocalFile, LocalRegularFile,\
-    LocalGoogleWorkspaceFile
-
+from .locall.localdb import LocalStorageDatabase
+from .locall.gwfile import LocalGoogleWorkspaceFile
+from .locall.file import LocalFile
+from .locall.regularfile import LocalRegularFile
 
 _logger = getLogger(__name__)
-
 
 app = Flask(__name__)
 

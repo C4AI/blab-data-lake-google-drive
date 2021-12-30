@@ -14,9 +14,10 @@ from .remote.file import RemoteFile
 from .remote.directory import RemoteDirectory
 from .remote.regularfile import RemoteRegularFile
 from .remote.gd import GoogleDriveService as GDService
-from .local import LocalStorageDatabase, LocalFile, LocalDirectory, \
-    LocalRegularFile, LocalGoogleWorkspaceFile, LocalFileRevision, \
-    LocalExportedGWFileVersion
+from .locall.localdb import LocalStorageDatabase
+from .locall.gwfile import LocalGoogleWorkspaceFile, LocalExportedGWFileVersion
+from .locall.file import LocalFile, LocalDirectory
+from .locall.regularfile import LocalRegularFile, LocalFileRevision
 
 _logger = getLogger(__name__)
 
