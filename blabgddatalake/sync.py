@@ -130,12 +130,12 @@ class GoogleDriveSync:
                                  **self._getattrs(rf, fields))
 
     @classmethod
-    def _gwversion_from_remote_file(cls, rf: RemoteGoogleWorkspaceFile,
-                                    extensions: list[str]) \
-            -> LocalExportedGWFileVersion:
+    def _gwversion_from_remote_file(
+            cls, rf: RemoteGoogleWorkspaceFile) -> LocalExportedGWFileVersion:
         fields = [
             'modified_time', 'modified_by', 'mime_type', 'name', 'can_export'
         ]
+        extensions = list(map(lambda f: f.extension, rf.export_formats))
         return LocalExportedGWFileVersion(file_id=rf.id,
                                           extensions=extensions,
                                           **cls._getattrs(rf, fields))
@@ -266,7 +266,7 @@ class GoogleDriveSync:
                 pass
             else:
                 lf.modified_time = rgwf.modified_time
-                ver = self._gwversion_from_remote_file(rgwf, ext)
+                ver = self._gwversion_from_remote_file(rgwf)
                 session.add(ver)
             session.flush()
             session.expire(lf, ['head_version'])
