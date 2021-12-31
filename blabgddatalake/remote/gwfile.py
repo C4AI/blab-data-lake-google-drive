@@ -9,6 +9,7 @@ from typing import Any
 from dateutil import parser as timestamp_parser
 
 import blabgddatalake.remote.file as file
+from blabgddatalake.formats import ExportFormat
 from blabgddatalake.remote.file import RemoteFile
 
 _logger = getLogger(__name__)
@@ -21,7 +22,7 @@ class RemoteGoogleWorkspaceFile(RemoteFile):
     can_export: bool
     """Whether the file can be exported"""
 
-    export_extensions: list[str] | None = None
+    export_formats: list[ExportFormat]
     """Formats to which the file can be exported"""
 
     @property
@@ -51,6 +52,9 @@ class RemoteGoogleWorkspaceFile(RemoteFile):
         Returns:
             an instance with the metadata obtained from ``f``
         """
+        formats = list(
+            map(lambda mt: ExportFormat.from_mime_type(mt),
+                metadata.get('exportLinks', {}).keys()))
         return RemoteGoogleWorkspaceFile(
             metadata['name'],
             metadata['id'],
@@ -62,4 +66,5 @@ class RemoteGoogleWorkspaceFile(RemoteFile):
             metadata['iconLink'],
             parent,
             metadata.get('capabilities', {}).get('canDownload', False),
+            formats,
         )

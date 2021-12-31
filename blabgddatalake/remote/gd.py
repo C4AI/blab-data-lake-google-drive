@@ -23,7 +23,7 @@ _logger = getLogger(__name__)
 _FILE_FIELDS = ', '.join([
     'id', 'name', 'parents', 'kind', 'mimeType', 'webViewLink', 'md5Checksum',
     'size', 'createdTime', 'modifiedTime', 'lastModifyingUser',
-    'headRevisionId', 'iconLink', 'capabilities'
+    'headRevisionId', 'iconLink', 'capabilities', 'exportLinks'
 ])
 
 
@@ -167,9 +167,6 @@ class GoogleDriveService:
                 node = subdir
             elif f['mimeType'].startswith('application/vnd.google-apps.'):
                 rgwf = remotegwf.RemoteGoogleWorkspaceFile.from_dict(f, rd)
-                rgwf.export_extensions = list(
-                    map(lambda fmt: str(fmt.extension),
-                        self.export_formats().get(f['mimeType'], [])))
                 node = rgwf
             else:
                 rrf = remoterf.RemoteRegularFile.from_dict(f, rd)
