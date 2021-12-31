@@ -1,0 +1,49 @@
+[tool.poetry]
+name = "blab-data-lake-google-drive"
+version = "1.0.0"
+description = ""
+authors = ["C4AI"]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+python-dateutil = "^2.8.2"
+google-api-python-client = "^2.30.0"
+google-auth = "^2.3.3"
+SQLAlchemy = {version = "^1.4.27", extras = ["mypy"]}
+packaging = "^21.3"
+structlog = "^21.4"
+Flask = "^2.0.2"
+waitress = "^2.0.0"
+overrides = "^6.1.0"
+rsa = "^4.8"
+
+[tool.poetry.group.dev]
+optional = true
+
+[tool.poetry.group.dev.dependencies]
+darglint = "*"
+flake8 = "*"
+flake8-annotations = "*"
+flake8-docstrings = "*"
+flake8-bugbear = "*"
+types-waitress = "*"
+types-python-dateutil = "*"
+types-Werkzeug = "*"
+python-lsp-server = {extras = ["all"], version = "*"}
+pyupgrade = "*"
+mypy = "*"
+yapf = "*"
+
+[tool.poetry.group.docs]
+optional = true
+
+[tool.poetry.group.docs.dependencies]
+sphinx = "*"
+sphinx-rtd-theme = "*"
+sphinx-autodoc-typehints = "*"
+sphinx-paramlinks = "*"
+
+
+[build-system]
+requires = ["poetry-core^1.2"]
+build-backend = "poetry.core.masonry.api"
