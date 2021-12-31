@@ -43,6 +43,11 @@ sphinx-rtd-theme = "*"
 sphinx-autodoc-typehints = "*"
 sphinx-paramlinks = "*"
 
+[tool.poetry.group.test]
+optional = true
+
+[tool.poetry.group.test.dependencies]
+Faker = "^11.1.0"
 
 [build-system]
 requires = ["poetry-core^1.2"]
