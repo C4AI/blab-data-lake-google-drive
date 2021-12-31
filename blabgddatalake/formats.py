@@ -2,34 +2,13 @@
 
 from __future__ import annotations
 
+from csv import reader as csv_reader
 from dataclasses import dataclass
 from typing import Any
 
 import re
 
-_ms_office_pfx = 'application/vnd.openxmlformats-officedocument.'
-
-gw_mime_type_to_extension: dict[str, str] = {
-    'application/epub+zip': 'epub',
-    'application/pdf': 'pdf',
-    'application/rtf': 'rtf',
-    'application/vnd.google-apps.script+json': 'json',
-    'application/vnd.oasis.opendocument.presentation': 'odp',
-    'application/vnd.oasis.opendocument.spreadsheet': 'ods',
-    'application/vnd.oasis.opendocument.text': 'odt',
-    _ms_office_pfx + 'presentationml.presentation': 'pptx',
-    _ms_office_pfx + 'spreadsheetml.sheet': 'xlsx',
-    _ms_office_pfx + 'wordprocessingml.document': 'docx',
-    'application/x-vnd.oasis.opendocument.spreadsheet': 'ots',
-    'application/zip': 'html.zip',
-    'image/jpeg': 'jpg',
-    'image/png': 'png',
-    'image/svg+xml': 'svg',
-    'text/csv': 'csv',
-    'text/html': 'html',
-    'text/plain': 'txt',
-    'text/tab-separated-values': 'tsv',
-}
+gw_mime_type_to_extension: dict[str, str] = {}
 """
 Maps MIME types to their extensions.
 
@@ -41,6 +20,14 @@ therefore, the double extension ``html.zip`` is appropriate.
 .. _official documentation: <https://developers.google.com/drive/api/v3/\
 ref-export-formats>
 """
+
+with open(__file__.rsplit('.', 1)[0] + '.csv', 'r') as csvfile:
+    reader = csv_reader(csvfile)
+    next(reader)
+    gw_mime_type_to_extension = {
+        mime_type: extension
+        for extension, mime_type in reader
+    }
 
 gw_extension_to_mime_type = {
     v: k
