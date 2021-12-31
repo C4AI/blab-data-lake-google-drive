@@ -3,13 +3,28 @@
 
 ## Installation:
 
-- Install Python 3.10 and Pipenv.
+- Install
+  [Python 3.10](https://www.python.org/downloads/release/python-3100/)
+  or newer.
 
-- Create the Pipenv environment and install the Python dependencies
-  by running `pipenv install` (add ` --dev` if the development-only
-  dependencies are needed).
+- Install [Poetry](https://python-poetry.org/):
+```shell
+curl -sSL https://install.python-poetry.org | python3 - --preview
+```
 
-- Obtain a service account for Google Drive on Google Cloud Platform
+- Install the dependencies using Poetry: 
+```shell
+poetry install
+```
+
+- **(Optional - not necessary in production)**
+  To install additional dependencies for development,
+  documentation generation and testing, add the arguments
+  `--with dev,doc,test` to the command in the last step.
+
+
+- Obtain a service account for Google Drive on
+  [Google Cloud Platform](https://console.cloud.google.com/)
   and download the private key file (JSON).
 
 - Copy the file
@@ -19,6 +34,6 @@
 
 ## Execution:
 
-- Run `pipenv run ./blab_data_lake.py` with one of the available commands
+- Run `poetry run ./blab_data_lake.py` with one of the available commands
   (`sync`, `cleanup`, `serve`) and its arguments.
   Add `-h` to display usage help.
