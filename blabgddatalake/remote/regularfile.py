@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from hashlib import md5
 from structlog import getLogger
 from typing import Any
 
@@ -43,14 +42,6 @@ class RemoteRegularFile(RemoteFile):
         """
         return (self.id + '_' + (self.head_revision_id or '') + '_' +
                 (self.md5_checksum or ''))
-
-    @classmethod
-    def _md5(cls, fn: str) -> str:
-        md5_hash = md5()
-        with open(fn, 'rb') as fd:
-            for chunk_4k in iter(lambda: fd.read(4096), b''):
-                md5_hash.update(chunk_4k)
-        return md5_hash.hexdigest()
 
     @classmethod
     def from_dict(

@@ -87,7 +87,7 @@ class GDFileMock:
     name: str = field(
         default_factory=lambda: fake_string(ascii_letters, randint(1, 15)))
     mimeType: str = 'application/octet-stream'
-    parents: list = field(default_factory=list)
+    parents: list[str] = field(default_factory=list)
     webViewLink: str = field(init=False)
     iconLink: str = field(init=False)
     createdTime: str = field(default_factory=lambda: timestamp())
@@ -131,11 +131,11 @@ class GDGoogleWorkspaceFileMock(GDFileMock):
 
     def __post_init__(self) -> None:
         super().__post_init__()
-        self.exportLinks = {
-            mime_type:
+        self.exportLinks: dict[str, str] = {
+            extension_to_mime_type[extension]:
             'https://docs.google.com/feeds/download/documents/export/'
             f'Export?id={self.id}&exportFormat={extension}'
-            for extension, mime_type in self._export_extensions
+            for extension in self._export_extensions
         }
 
 

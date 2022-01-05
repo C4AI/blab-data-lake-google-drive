@@ -9,7 +9,7 @@ from sqlalchemy.orm import relationship, backref
 from sys import maxsize
 from typing import Any
 
-from blabgddatalake.local import Base, _TimestampWithTZ
+from blabgddatalake.local import Base, TimestampWithTZ
 from blabgddatalake.local.file import LocalFile
 
 
@@ -117,7 +117,7 @@ class LocalFileRevision(Base):
     can_download: bool = Column(Boolean, nullable=False)
     """Whether file can be downloaded"""
 
-    modified_time: datetime = Column(_TimestampWithTZ())
+    modified_time: datetime = Column(TimestampWithTZ())
     """Last modification timestamp"""
 
     modified_by = Column(String)
@@ -141,7 +141,7 @@ class LocalFileRevision(Base):
         """
         return self.file_id + '_' + self.revision_id + '_' + self.md5_checksum
 
-    obsolete_since: datetime = Column(_TimestampWithTZ(), nullable=True)
+    obsolete_since: datetime = Column(TimestampWithTZ(), nullable=True)
     """Instant when the deletion of the file was detected
 
     It is ``None`` for files that have not been deleted.

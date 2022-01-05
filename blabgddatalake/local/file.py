@@ -13,7 +13,7 @@ from typing import Any
 import blabgddatalake.local as local
 import blabgddatalake.common as common
 
-_TimestampWithTZ = local._TimestampWithTZ
+_TimestampWithTZ = local.TimestampWithTZ
 
 
 class LocalFile(local.Base, common.TreeNode):
