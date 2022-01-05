@@ -16,7 +16,7 @@ _logger = getLogger(__name__)
 Base = declarative_base()
 
 
-class _TimestampWithTZ(TypeDecorator):
+class TimestampWithTZ(TypeDecorator[datetime]):
     impl = DateTime
     cache_ok = True
 
@@ -37,7 +37,7 @@ class _TimestampWithTZ(TypeDecorator):
         return value.astimezone(timezone.utc)
 
 
-class _CommaSeparatedValues(TypeDecorator):
+class _CommaSeparatedValues(TypeDecorator[list[str]]):
     impl = Unicode
 
     cache_ok = True

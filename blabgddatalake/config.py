@@ -5,7 +5,7 @@ from configparser import ConfigParser
 from dataclasses import dataclass, field, fields
 from re import sub as re_sub
 from types import GenericAlias
-from typing import TypeVar, Type
+from typing import Any, TypeVar, Type
 
 from .formats import ExportFormat
 
@@ -44,7 +44,7 @@ class AutoConvertFromStringDataClass:
         return re_sub('[A-Z]', lambda c: '_' + c.group().lower(), s).strip('_')
 
     @classmethod
-    def from_mapping(cls: Type[T], m: Mapping) -> T:
+    def from_mapping(cls: Type[T], m: Mapping[str, Any]) -> T:
         """Create an instance using attributes from a mapping.
 
         Keys are converted to snake case.
@@ -56,6 +56,7 @@ class AutoConvertFromStringDataClass:
             AutoConvertFromStringDataClass: an instance \
                 with its attributes filled
         """  # noqa: DAR203
+        # noinspection PyArgumentList
         return cls(**{cls.__to_snake_case(k): v for k, v in m.items()})
 
 
@@ -197,9 +198,9 @@ class LocalConfig(AutoConvertFromStringDataClass):
     deletion_delay: int
     """Delay to delete files (in seconds)
 
-        During a clean-up execution, only delete files that were
-        marked for deletion (by a sync execution) at least this number of
-        seconds ago.
+    During a clean-up execution, only delete files that were
+    marked for deletion (by a sync execution) at least this number of
+    seconds ago.
     """
 
 

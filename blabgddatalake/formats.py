@@ -8,7 +8,7 @@ from typing import Any
 
 import re
 
-gw_mime_type_to_extension: dict[str, str] = {}
+gw_mime_type_to_extension: dict[str, str]
 """
 Maps MIME types to their extensions.
 

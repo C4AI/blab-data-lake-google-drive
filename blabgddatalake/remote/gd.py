@@ -5,8 +5,10 @@ from __future__ import annotations
 from functools import lru_cache
 
 from google.oauth2 import service_account
+# noinspection PyProtectedMember
 from googleapiclient.discovery import Resource, build
 from googleapiclient.http import HttpRequest, MediaIoBaseDownload
+from hashlib import md5
 from httplib2 import Http
 from pathlib import Path
 from structlog import getLogger
@@ -230,6 +232,14 @@ class GoogleDriveService:
         """
         return self.gd_config.retries
 
+    @classmethod
+    def _md5(cls, fn: str) -> str:
+        md5_hash = md5()
+        with open(fn, 'rb') as fd:
+            for chunk_4k in iter(lambda: fd.read(4096), b''):
+                md5_hash.update(chunk_4k)
+        return md5_hash.hexdigest()
+
     def download_file(self,
                       rf: remoterf.RemoteRegularFile,
                       output_file: str,
@@ -259,7 +269,7 @@ class GoogleDriveService:
                 if not also_check_md5:
                     log.info('skipping download, size matches', size=rf.size)
                     return None
-                if rf._md5(output_file) == rf.md5_checksum:
+                if self._md5(output_file) == rf.md5_checksum:
                     log.info('skipping download, size and hash match',
                              size=rf.size,
                              md5_checksum=rf.md5_checksum)

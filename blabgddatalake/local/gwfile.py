@@ -9,7 +9,7 @@ from sqlalchemy.orm import relationship, backref
 from sys import maxsize
 from typing import Any
 
-from blabgddatalake.local import Base, _TimestampWithTZ, _CommaSeparatedValues
+from blabgddatalake.local import Base, TimestampWithTZ, _CommaSeparatedValues
 from blabgddatalake.local.file import LocalFile
 from blabgddatalake.local.regularfile import LocalRegularFile
 
@@ -69,7 +69,7 @@ class LocalExportedGWFileVersion(Base):
     name: str = Column(String)
     """File name (without directory)"""
 
-    modified_time: datetime = Column(_TimestampWithTZ())
+    modified_time: datetime = Column(TimestampWithTZ())
     """Last modification timestamp"""
 
     modified_by = Column(String)
@@ -107,7 +107,7 @@ class LocalExportedGWFileVersion(Base):
             for ext in self.extensions
         }
 
-    obsolete_since: datetime = Column(_TimestampWithTZ(), nullable=True)
+    obsolete_since: datetime = Column(TimestampWithTZ(), nullable=True)
     """Instant when the deletion of the file was detected
 
     It is ``None`` for files that have not been deleted.
