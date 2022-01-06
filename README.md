@@ -1,5 +1,6 @@
 # BLAB Data Lake (using Google Drive)
 
+This tool keeps a local snapshot of the contents of a Google Drive directory and its subdirectories.
 
 ## Installation:
 
@@ -8,18 +9,19 @@
   or newer.
 
 - Install [Poetry](https://python-poetry.org/):
+
 ```shell
 curl -sSL https://install.python-poetry.org | python3 - --preview
 ```
 
 - Install the dependencies using Poetry:
+
 ```shell
 poetry install
 ```
 
 - **(Optional - not necessary in production)**
-  To install additional dependencies for development,
-  documentation generation and testing, add the arguments
+  To install additional dependencies for development, documentation generation and testing, add the arguments
   `--with dev,doc,test` to the command in the last step.
 
 
@@ -29,11 +31,9 @@ poetry install
 
 - Copy the file
   `blab-data-lake-settings-template.cfg` to
-  `blab-data-lake-settings.cfg` and fill in
-  the fields (see [documentation](README_CONFIG.md)).
+  `blab-data-lake-settings.cfg` and fill in the fields (see [documentation](README_CONFIG.md)).
 
 ## Execution:
 
 - Run `poetry run ./blab_data_lake.py` with one of the available commands
-  (`sync`, `cleanup`, `serve`) and its arguments.
-  Add `-h` to display usage help.
+  (`sync`, `cleanup`, `serve`) and its arguments. Add `-h` to display usage help.
