@@ -10,7 +10,7 @@ from sqlalchemy import (Boolean, Column, ForeignKey, Integer, String,
                         UniqueConstraint)
 from sqlalchemy.orm import backref, relationship
 
-from blabgddatalake.local import Base, _TimestampWithTZ, _CommaSeparatedValues
+from blabgddatalake.local import Base, _CommaSeparatedValues, _TimestampWithTZ
 from blabgddatalake.local.file import LocalFile
 from blabgddatalake.local.regularfile import LocalRegularFile
 

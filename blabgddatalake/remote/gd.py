@@ -5,7 +5,7 @@ from __future__ import annotations
 from functools import lru_cache
 from hashlib import md5
 from pathlib import Path
-from typing import Any, cast, Sequence
+from typing import Any, Sequence, cast
 
 from google.oauth2 import service_account
 from googleapiclient.discovery import Resource, build

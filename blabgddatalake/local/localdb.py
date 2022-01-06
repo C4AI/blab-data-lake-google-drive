@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TypeVar, Sequence
+from typing import Sequence, TypeVar
 from urllib.parse import parse_qs
 
 from packaging.version import parse as parse_version
