@@ -5,10 +5,9 @@ from __future__ import annotations
 from functools import lru_cache
 from hashlib import md5
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, cast, Sequence
 
 from google.oauth2 import service_account
-# noinspection PyProtectedMember
 from googleapiclient.discovery import Resource, build
 from googleapiclient.http import HttpRequest, MediaIoBaseDownload
 from httplib2 import Http
@@ -55,7 +54,7 @@ class GoogleDriveService:
         self.gd_config: GoogleDriveConfig = gd_config
         """Configuration parameters"""
 
-        self.service: Resource = _service or self.__get_service()
+        self.service: Resource = _service or self.__get_service(_http)
         """Google Drive service."""
 
     def __get_service(self, _http: Http | None = None) -> Resource:
@@ -306,3 +305,8 @@ class GoogleDriveService:
             if not ok:
                 return False
         return True
+
+
+__all__: Sequence[str] = [c.__name__ for c in [
+    GoogleDriveService,
+]]

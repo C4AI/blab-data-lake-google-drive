@@ -1,13 +1,11 @@
 """Contains classes representing configurations."""
 
-from __future__ import annotations
-
 from collections.abc import Mapping
 from configparser import ConfigParser
 from dataclasses import dataclass, field, fields
 from re import sub as re_sub
 from types import GenericAlias
-from typing import Any, TypeVar
+from typing import Any, TypeVar, Sequence
 
 from .formats import ExportFormat
 
@@ -238,7 +236,7 @@ class Config:
     """Lake server settings"""
 
     @classmethod
-    def read_settings(cls, fn: str) -> Config:
+    def read_settings(cls, fn: str) -> "Config":
         """Read settings from a configuration file.
 
         Args:
@@ -256,3 +254,14 @@ class Config:
             LocalConfig.from_mapping(cp['Local']),
             LakeServerConfig.from_mapping(cp['LakeServer']),
         )
+
+
+__all__: Sequence[str] = [
+    c.__name__ for c in [
+        Config,
+        DatabaseConfig,
+        GoogleDriveConfig,
+        LakeServerConfig,
+        LocalConfig,
+    ]
+]

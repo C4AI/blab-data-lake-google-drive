@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Sequence
 
 from dateutil import parser as timestamp_parser
 from structlog import getLogger
@@ -68,3 +68,8 @@ class RemoteGoogleWorkspaceFile(RemoteFile):
             metadata.get('capabilities', {}).get('canDownload', False),
             formats,
         )
+
+
+__all__: Sequence[str] = [c.__name__ for c in [
+    RemoteGoogleWorkspaceFile,
+]]

@@ -2,6 +2,7 @@
 
 from pathlib import Path
 from sys import maxsize
+from typing import Sequence
 
 from flask import Flask, Response, abort, jsonify, request, send_file
 from structlog import getLogger
@@ -155,3 +156,8 @@ def serve(config: Config, port: int | None) -> int:
     app.config['JSON_SORT_KEYS'] = False
     waitress_serve(app, host=server_cfg.host, port=port or server_cfg.port)
     return 0
+
+
+__all__: Sequence[str] = [c.__name__ for c in [
+    serve,
+]]
