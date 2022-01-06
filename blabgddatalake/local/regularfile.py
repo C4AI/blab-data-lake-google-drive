@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from datetime import datetime
 from sys import maxsize
-from typing import Any
+from typing import Any, Sequence
 
 from overrides import overrides
 from sqlalchemy import (BigInteger, Boolean, Column, ForeignKey, Integer,
