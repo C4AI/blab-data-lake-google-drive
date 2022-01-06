@@ -1,11 +1,13 @@
 """Contains classes representing configurations."""
 
+from __future__ import annotations
+
 from collections.abc import Mapping
 from configparser import ConfigParser
 from dataclasses import dataclass, field, fields
 from re import sub as re_sub
 from types import GenericAlias
-from typing import Any, TypeVar, Type
+from typing import Any, TypeVar
 
 from .formats import ExportFormat
 
@@ -44,7 +46,7 @@ class AutoConvertFromStringDataClass:
         return re_sub('[A-Z]', lambda c: '_' + c.group().lower(), s).strip('_')
 
     @classmethod
-    def from_mapping(cls: Type[T], m: Mapping[str, Any]) -> T:
+    def from_mapping(cls: type[T], m: Mapping[str, Any]) -> T:
         """Create an instance using attributes from a mapping.
 
         Keys are converted to snake case.
@@ -236,7 +238,7 @@ class Config:
     """Lake server settings"""
 
     @classmethod
-    def read_settings(cls, fn: str) -> 'Config':
+    def read_settings(cls, fn: str) -> Config:
         """Read settings from a configuration file.
 
         Args:

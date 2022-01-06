@@ -4,19 +4,20 @@ from datetime import datetime, timedelta
 from functools import cached_property
 from os import remove as os_delete_file
 from pathlib import Path
+from typing import Any, cast
+
 from sqlalchemy.orm import Session
 from structlog import getLogger
-from typing import Any, cast
 
 from .config import Config
 from .formats import ExportFormat
-from .local.gwfile import LocalGoogleWorkspaceFile, LocalExportedGWFileVersion
-from .local.file import LocalFile, LocalDirectory
+from .local.file import LocalDirectory, LocalFile
+from .local.gwfile import LocalExportedGWFileVersion, LocalGoogleWorkspaceFile
 from .local.localdb import LocalStorageDatabase
-from .local.regularfile import LocalRegularFile, LocalFileRevision
+from .local.regularfile import LocalFileRevision, LocalRegularFile
 from .remote.file import RemoteDirectory, RemoteFile
-from .remote.gwfile import RemoteGoogleWorkspaceFile
 from .remote.gd import GoogleDriveService as GDService
+from .remote.gwfile import RemoteGoogleWorkspaceFile
 from .remote.regularfile import RemoteRegularFile
 
 _logger = getLogger(__name__)

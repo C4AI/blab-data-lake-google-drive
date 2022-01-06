@@ -12,7 +12,7 @@
 curl -sSL https://install.python-poetry.org | python3 - --preview
 ```
 
-- Install the dependencies using Poetry: 
+- Install the dependencies using Poetry:
 ```shell
 poetry install
 ```

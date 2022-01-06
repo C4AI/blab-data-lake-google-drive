@@ -1,7 +1,8 @@
 """Contains some useful components used by both local and remote modules."""
 
-from overrides import overrides
 from typing import Any
+
+from overrides import overrides
 
 
 class TreeNode:

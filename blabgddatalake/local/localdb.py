@@ -3,21 +3,21 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TypeVar, Type
+from typing import TypeVar
 from urllib.parse import parse_qs
 
 from packaging.version import parse as parse_version
 from sqlalchemy import create_engine, select, update
-from sqlalchemy.engine import Engine, URL
+from sqlalchemy.engine import URL, Engine
 from sqlalchemy.orm import Session
 from structlog import getLogger
 
 from blabgddatalake import __version__
 from blabgddatalake.config import DatabaseConfig
 from blabgddatalake.local import Base, DatabaseMetadata
-from blabgddatalake.local.file import LocalFile, LocalDirectory
-from blabgddatalake.local.regularfile import LocalFileRevision
+from blabgddatalake.local.file import LocalDirectory, LocalFile
 from blabgddatalake.local.gwfile import LocalExportedGWFileVersion
+from blabgddatalake.local.regularfile import LocalFileRevision
 
 _logger = getLogger(__name__)
 
@@ -149,7 +149,7 @@ class LocalStorageDatabase:
 
     @classmethod
     def _get_obsolete_items(cls,
-                            c: Type[T],
+                            c: type[T],
                             session: Session,
                             until: datetime | None = None) -> list[T]:
         stmt = select(c).where(c.obsolete_since.is_not(None))

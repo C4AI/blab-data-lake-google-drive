@@ -7,7 +7,7 @@ authors = ["C4AI"]
 [tool.poetry.dependencies]
 python = "^3.10"
 python-dateutil = "^2.8.2"
-google-api-python-client = "^2.30.0"
+google-api-python-client = "^2.34.0"
 google-auth = "^2.3.3"
 SQLAlchemy = {version = "^1.4.27", extras = ["mypy"]}
 packaging = "^21.3"
@@ -33,6 +33,7 @@ python-lsp-server = {extras = ["all"], version = "*"}
 pyupgrade = "*"
 mypy = "*"
 yapf = "*"
+pre-commit = "^2.16.0"
 
 [tool.poetry.group.docs]
 optional = true
@@ -48,6 +49,7 @@ optional = true
 
 [tool.poetry.group.test.dependencies]
 Faker = "^11.1.0"
+pysqlite = "^2.8.3"
 
 [build-system]
 requires = ["poetry-core^1.2"]

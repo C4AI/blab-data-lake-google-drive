@@ -5,8 +5,9 @@ from datetime import datetime, timezone
 from typing import Any
 
 from dateutil import tz
-from sqlalchemy import (TypeDecorator, DateTime, Unicode, Column, Integer,
-                        String)
+from overrides import overrides
+from sqlalchemy import (Column, DateTime, Integer, String, TypeDecorator,
+                        Unicode)
 from sqlalchemy.engine import Dialect
 from sqlalchemy.orm import declarative_base
 from structlog import getLogger
@@ -17,9 +18,12 @@ Base = declarative_base()
 
 
 class TimestampWithTZ(TypeDecorator[datetime]):
+    """Adds missing time zone to datetime instances."""
+
     impl = DateTime
     cache_ok = True
 
+    @overrides
     def process_bind_param(self, value: Any, _dialect: Dialect) \
             -> datetime | None:
         if not isinstance(value, datetime):
@@ -28,6 +32,7 @@ class TimestampWithTZ(TypeDecorator[datetime]):
             value = value.astimezone(tz.tzlocal())
         return value.astimezone(timezone.utc)
 
+    @overrides
     def process_result_value(self, value: Any, _dialect: Dialect) \
             -> datetime | None:
         if not isinstance(value, datetime):
