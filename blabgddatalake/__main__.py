@@ -38,6 +38,19 @@ def parse_args(args: list[str]) -> argparse.Namespace:
                            action='store_true')
 
     def non_negative_float(s: str) -> float:
+        """Convert a string into a non-negative float.
+
+        Args:
+            s: the string to convert
+
+        Raises:
+            ArgumentTypeError: \
+                if the input string does not represent
+                a non-negative float
+
+        Returns:
+            a float with the value represented by the input string
+        """
         try:
             n = float(s)
         except (ValueError, TypeError):
@@ -49,6 +62,19 @@ def parse_args(args: list[str]) -> argparse.Namespace:
             f"invalid non-negative float value: '{s}'")
 
     def port(s: str) -> int:
+        """Convert a string into an integer between 1 and 65535.
+
+        Args:
+            s: the string to convert
+
+        Raises:
+            ArgumentTypeError: \
+                if the input string does not represent
+                an integer number between 1 and 65535
+
+        Returns:
+            an int with the value represented by the input string
+        """
         try:
             n = int(s)
         except (ValueError, TypeError):

@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
-from typing import Any
+from typing import Any, Sequence
 
 from dateutil import tz
 from overrides import overrides
@@ -17,14 +17,14 @@ _logger = getLogger(__name__)
 Base = declarative_base()
 
 
-class TimestampWithTZ(TypeDecorator[datetime]):
+class _TimestampWithTZ(TypeDecorator[datetime]):
     """Adds missing time zone to datetime instances."""
 
     impl = DateTime
     cache_ok = True
 
     @overrides
-    def process_bind_param(self, value: Any, _dialect: Dialect) \
+    def process_bind_param(self, value: Any, dialect: Dialect) \
             -> datetime | None:
         if not isinstance(value, datetime):
             return None
@@ -33,7 +33,7 @@ class TimestampWithTZ(TypeDecorator[datetime]):
         return value.astimezone(timezone.utc)
 
     @overrides
-    def process_result_value(self, value: Any, _dialect: Dialect) \
+    def process_result_value(self, value: Any, dialect: Dialect) \
             -> datetime | None:
         if not isinstance(value, datetime):
             return None
@@ -70,3 +70,8 @@ class DatabaseMetadata(Base):
 
     def __repr__(self) -> str:
         return f'[{self.key} = {self.value}]'
+
+
+__all__: Sequence[str] = [c.__name__ for c in [
+    DatabaseMetadata,
+]]

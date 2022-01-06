@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from csv import reader as csv_reader
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Sequence
 
 gw_mime_type_to_extension: dict[str, str]
 """
@@ -100,3 +100,8 @@ class ExportFormat:
         else:
             known = True
         return ExportFormat(mime_type, extension, known)
+
+
+__all__: Sequence[str] = [c.__name__ for c in [
+    ExportFormat,
+]]

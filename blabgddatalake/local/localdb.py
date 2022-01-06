@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import TypeVar
+from typing import TypeVar, Sequence
 from urllib.parse import parse_qs
 
 from packaging.version import parse as parse_version
@@ -225,3 +225,8 @@ class LocalStorageDatabase:
         """
         _logger.info('requesting files to delete (only metadata)', until=until)
         return cls._get_obsolete_items(LocalFile, session, until)
+
+
+__all__: Sequence[str] = [c.__name__ for c in [
+    LocalStorageDatabase,
+]]

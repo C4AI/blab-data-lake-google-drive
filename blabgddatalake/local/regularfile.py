@@ -10,7 +10,7 @@ from sqlalchemy import (BigInteger, Boolean, Column, ForeignKey, Integer,
                         String, UniqueConstraint)
 from sqlalchemy.orm import backref, relationship
 
-from blabgddatalake.local import Base, TimestampWithTZ
+from blabgddatalake.local import Base, _TimestampWithTZ
 from blabgddatalake.local.file import LocalFile
 
 
@@ -118,7 +118,7 @@ class LocalFileRevision(Base):
     can_download: bool = Column(Boolean, nullable=False)
     """Whether file can be downloaded"""
 
-    modified_time: datetime = Column(TimestampWithTZ())
+    modified_time: datetime = Column(_TimestampWithTZ())
     """Last modification timestamp"""
 
     modified_by = Column(String)
@@ -142,7 +142,7 @@ class LocalFileRevision(Base):
         """
         return self.file_id + '_' + self.revision_id + '_' + self.md5_checksum
 
-    obsolete_since: datetime = Column(TimestampWithTZ(), nullable=True)
+    obsolete_since: datetime = Column(_TimestampWithTZ(), nullable=True)
     """Instant when the deletion of the file was detected
 
     It is ``None`` for files that have not been deleted.
@@ -151,3 +151,11 @@ class LocalFileRevision(Base):
     __table_args__ = (UniqueConstraint('file_id',
                                        'revision_id',
                                        name='_file_revision_unique'), )
+
+
+__all__: Sequence[str] = [
+    c.__name__ for c in [
+        LocalFileRevision,
+        LocalRegularFile,
+    ]
+]

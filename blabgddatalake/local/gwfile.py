@@ -3,14 +3,14 @@ from __future__ import annotations
 
 from datetime import datetime
 from sys import maxsize
-from typing import Any
+from typing import Any, Sequence
 
 from overrides import overrides
 from sqlalchemy import (Boolean, Column, ForeignKey, Integer, String,
                         UniqueConstraint)
 from sqlalchemy.orm import backref, relationship
 
-from blabgddatalake.local import Base, TimestampWithTZ, _CommaSeparatedValues
+from blabgddatalake.local import Base, _TimestampWithTZ, _CommaSeparatedValues
 from blabgddatalake.local.file import LocalFile
 from blabgddatalake.local.regularfile import LocalRegularFile
 
@@ -70,7 +70,7 @@ class LocalExportedGWFileVersion(Base):
     name: str = Column(String)
     """File name (without directory)"""
 
-    modified_time: datetime = Column(TimestampWithTZ())
+    modified_time: datetime = Column(_TimestampWithTZ())
     """Last modification timestamp"""
 
     modified_by = Column(String)
@@ -108,7 +108,7 @@ class LocalExportedGWFileVersion(Base):
             for ext in self.extensions
         }
 
-    obsolete_since: datetime = Column(TimestampWithTZ(), nullable=True)
+    obsolete_since: datetime = Column(_TimestampWithTZ(), nullable=True)
     """Instant when the deletion of the file was detected
 
     It is ``None`` for files that have not been deleted.
@@ -117,3 +117,11 @@ class LocalExportedGWFileVersion(Base):
     __table_args__ = (UniqueConstraint('file_id',
                                        'modified_time',
                                        name='_gw_file_version_unique'), )
+
+
+__all__: Sequence[str] = [
+    c.__name__ for c in [
+        LocalExportedGWFileVersion,
+        LocalGoogleWorkspaceFile,
+    ]
+]

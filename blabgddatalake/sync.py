@@ -106,6 +106,7 @@ class GoogleDriveSync:
     def _getattrs(obj: Any, attrs: list[str]) -> dict[str, Any]:
         return {k: getattr(obj, k, None) for k in attrs}
 
+    # noinspection PyArgumentList
     def _local_file_from_remote_file(self, rf: RemoteFile) -> LocalFile:
         fields = [
             'id', 'name', 'mime_type', 'created_time', 'modified_time',

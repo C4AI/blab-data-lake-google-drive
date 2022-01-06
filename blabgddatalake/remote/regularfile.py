@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Sequence
 
 from dateutil import parser as timestamp_parser
 from structlog import getLogger
@@ -75,3 +75,8 @@ class RemoteRegularFile(RemoteFile):
             metadata.get('headRevisionId', None),
             metadata.get('capabilities', {}).get('canDownload', False),
         )
+
+
+__all__: Sequence[str] = [c.__name__ for c in [
+    RemoteRegularFile,
+]]

@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any
+from typing import Any, Sequence
 
 from dateutil import parser as timestamp_parser
 from structlog import getLogger
@@ -100,3 +100,9 @@ class RemoteDirectory(RemoteFile, NonLeafTreeNode):
             d.update(
                 c.flatten() if isinstance(c, RemoteDirectory) else {c.id: c})
         return d
+
+
+__all__: Sequence[str] = [c.__name__ for c in [
+    RemoteDirectory,
+    RemoteFile,
+]]
