@@ -5,7 +5,7 @@ from configparser import ConfigParser
 from dataclasses import dataclass, field, fields
 from re import sub as re_sub
 from types import GenericAlias
-from typing import Any, TypeVar, Sequence
+from typing import Any, Sequence, TypeVar
 
 from .formats import ExportFormat
 
