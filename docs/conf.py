@@ -20,7 +20,6 @@ import sys
 sys.path.insert(0, os.path.abspath('..'))
 from blabgddatalake import __version__  # noqa: E402
 
-
 # -- Project information -----------------------------------------------------
 
 project = 'BLAB Data Lake'
@@ -31,7 +30,6 @@ author = 'C4AI'
 version = re.sub(r'[^0-9\.]', '', __version__)
 # The full version, including alpha/beta/rc tags
 release = __version__
-
 
 # -- General configuration ---------------------------------------------------
 
@@ -53,7 +51,6 @@ extensions = [
     'sphinx.ext.coverage',
     'sphinx.ext.githubpages',
 ]
-
 
 # Add any paths that contain templates here, relative to this directory.
 templates_path = ['_templates']
@@ -81,7 +78,6 @@ exclude_patterns = ['_build', 'Thumbs.db', '.DS_Store']
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = None
-
 
 # -- Options for HTML output -------------------------------------------------
 
@@ -111,12 +107,10 @@ html_static_path = ['_static']
 #
 # html_sidebars = {}
 
-
 # -- Options for HTMLHelp output ---------------------------------------------
 
 # Output file base name for HTML help builder.
 htmlhelp_basename = 'BLABDataLakedoc'
-
 
 # -- Options for LaTeX output ------------------------------------------------
 
@@ -142,20 +136,16 @@ latex_elements: dict[str, str] = {
 # (source start file, target name, title,
 #  author, documentclass [howto, manual, or own class]).
 latex_documents = [
-    (master_doc, 'BLABDataLake.tex', 'BLAB Data Lake Documentation',
-     'C4AI', 'manual'),
+    (master_doc, 'BLABDataLake.tex', 'BLAB Data Lake Documentation', 'C4AI',
+     'manual'),
 ]
-
 
 # -- Options for manual page output ------------------------------------------
 
 # One entry per manual page. List of tuples
 # (source start file, name, description, authors, manual section).
-man_pages = [
-    (master_doc, 'blabdatalake', 'BLAB Data Lake Documentation',
-     [author], 1)
-]
-
+man_pages = [(master_doc, 'blabdatalake', 'BLAB Data Lake Documentation',
+              [author], 1)]
 
 # -- Options for Texinfo output ----------------------------------------------
 
@@ -163,11 +153,9 @@ man_pages = [
 # (source start file, target name, title, author,
 #  dir menu entry, description, category)
 texinfo_documents = [
-    (master_doc, 'BLABDataLake', 'BLAB Data Lake Documentation',
-     author, 'BLABDataLake', 'One line description of project.',
-     'Miscellaneous'),
+    (master_doc, 'BLABDataLake', 'BLAB Data Lake Documentation', author,
+     'BLABDataLake', 'One line description of project.', 'Miscellaneous'),
 ]
-
 
 # -- Options for Epub output -------------------------------------------------
 
@@ -186,7 +174,6 @@ epub_title = project
 # A list of files that should not be packed into the epub file.
 epub_exclude_files = ['search.html']
 
-
 # -- Extension configuration -------------------------------------------------
 
 # -- Options for intersphinx extension ---------------------------------------
@@ -202,7 +189,6 @@ todo_include_todos = True
 # Include documentation for __init__
 autoclass_content = 'both'
 
-
 # Show full tree on the left
 html_theme_options = {
     'navigation_depth': 999,
@@ -210,20 +196,22 @@ html_theme_options = {
 }
 
 
-def fix_sig(app, what, name, obj, options, signature, return_annotation):  # type: ignore[no-untyped-def] # noqa: ANN
+def fix_sig(app, what, name, obj, options, signature,
+            return_annotation):  # type: ignore[no-untyped-def] # noqa: ANN
     """Hide types from function signature."""  # noqa:DAR
-    from inspect import Signature, Parameter
+    from inspect import Parameter, Signature
     if not callable(obj):
         return (signature, return_annotation)
     sig = Signature.from_callable(obj)
-    clean_par = [p.replace(annotation=Parameter.empty)
-                 for p in sig.parameters.values()]
-    sig = sig.replace(parameters=clean_par,
-                      return_annotation=Signature.empty)
+    clean_par = [
+        p.replace(annotation=Parameter.empty) for p in sig.parameters.values()
+    ]
+    sig = sig.replace(parameters=clean_par, return_annotation=Signature.empty)
     return (str(sig), return_annotation)
 
 
-def keep_version(app, what, name, obj, would_skip, options):   # type: ignore[no-untyped-def] # noqa: ANN
+def keep_version(app, what, name, obj, would_skip,
+                 options):  # type: ignore[no-untyped-def] # noqa: ANN
     """Do not ignore __version__."""  # noqa:DAR
     if name == '__version__':
         return False

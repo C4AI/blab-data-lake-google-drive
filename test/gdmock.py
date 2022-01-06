@@ -1,10 +1,12 @@
 from csv import reader as csv_reader
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
-from faker import Faker
 from pathlib import Path
-from random import choices as random_choices, randint
+from random import choices as random_choices
+from random import randint
 from string import ascii_letters, digits
+
+from faker import Faker
 
 fake = Faker()
 
@@ -143,7 +145,7 @@ _gw_files_prefix = 'application/vnd.google-apps.'
 
 extension_to_mime_type: dict[str, str]
 formats_csv = Path(__file__).parent.parent / 'blabgddatalake' / 'formats.csv'
-with open(formats_csv, 'r') as csvfile:
+with open(formats_csv) as csvfile:
     reader = csv_reader(csvfile)
     next(reader)
     extension_to_mime_type = {

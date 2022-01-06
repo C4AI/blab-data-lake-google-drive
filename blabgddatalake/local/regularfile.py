@@ -2,12 +2,13 @@
 from __future__ import annotations
 
 from datetime import datetime
-from overrides import overrides
-from sqlalchemy import (Column, String, ForeignKey, Integer, Boolean,
-                        BigInteger, UniqueConstraint)
-from sqlalchemy.orm import relationship, backref
 from sys import maxsize
 from typing import Any
+
+from overrides import overrides
+from sqlalchemy import (BigInteger, Boolean, Column, ForeignKey, Integer,
+                        String, UniqueConstraint)
+from sqlalchemy.orm import backref, relationship
 
 from blabgddatalake.local import Base, TimestampWithTZ
 from blabgddatalake.local.file import LocalFile

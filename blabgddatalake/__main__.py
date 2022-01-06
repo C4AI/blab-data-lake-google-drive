@@ -6,14 +6,15 @@
 
 import argparse
 import logging
-import structlog
 import sys
+
+import structlog
 
 from .config import Config
 from .local.localdb import LocalStorageDatabase
 from .remote.gd import GoogleDriveService as GDService
 from .server import serve
-from .sync import sync, cleanup
+from .sync import cleanup, sync
 
 
 def parse_args(args: list[str]) -> argparse.Namespace:

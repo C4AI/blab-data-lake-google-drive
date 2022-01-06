@@ -2,11 +2,10 @@
 
 from __future__ import annotations
 
+import re
 from csv import reader as csv_reader
 from dataclasses import dataclass
 from typing import Any
-
-import re
 
 gw_mime_type_to_extension: dict[str, str]
 """
@@ -21,7 +20,7 @@ therefore, the double extension ``html.zip`` is appropriate.
 ref-export-formats>
 """
 
-with open(__file__.rsplit('.', 1)[0] + '.csv', 'r') as csvfile:
+with open(__file__.rsplit('.', 1)[0] + '.csv') as csvfile:
     reader = csv_reader(csvfile)
     next(reader)
     gw_mime_type_to_extension = {

@@ -3,9 +3,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import datetime
+from typing import Any
+
 from dateutil import parser as timestamp_parser
 from structlog import getLogger
-from typing import Any
 
 from blabgddatalake.common import NonLeafTreeNode, TreeNode
 

@@ -3,10 +3,10 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from structlog import getLogger
 from typing import Any
 
 from dateutil import parser as timestamp_parser
+from structlog import getLogger
 
 import blabgddatalake.remote.file as file
 from blabgddatalake.formats import ExportFormat

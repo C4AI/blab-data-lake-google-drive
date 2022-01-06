@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 from datetime import datetime
-from overrides import overrides
-
-from sqlalchemy import Column, Integer, String, ForeignKey, inspect, Boolean
-from sqlalchemy.orm import relationship, backref
 from sys import maxsize
 from typing import Any
 
-import blabgddatalake.local as local
+from overrides import overrides
+from sqlalchemy import Boolean, Column, ForeignKey, Integer, String, inspect
+from sqlalchemy.orm import backref, relationship
+
 import blabgddatalake.common as common
+import blabgddatalake.local as local
 
 _TimestampWithTZ = local.TimestampWithTZ
 

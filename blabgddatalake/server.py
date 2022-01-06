@@ -1,16 +1,17 @@
 """A module that runs a simple HTTP server providing file metadata/contents."""
 
-from flask import abort, Flask, jsonify, request, Response, send_file
 from pathlib import Path
-from structlog import getLogger
 from sys import maxsize
+
+from flask import Flask, Response, abort, jsonify, request, send_file
+from structlog import getLogger
 from waitress import serve as waitress_serve
 
 from .config import Config
 from .formats import ExportFormat
-from .local.localdb import LocalStorageDatabase
-from .local.gwfile import LocalGoogleWorkspaceFile
 from .local.file import LocalFile
+from .local.gwfile import LocalGoogleWorkspaceFile
+from .local.localdb import LocalStorageDatabase
 from .local.regularfile import LocalRegularFile
 
 _logger = getLogger(__name__)

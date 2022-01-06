@@ -3,22 +3,22 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from hashlib import md5
+from pathlib import Path
+from typing import Any, cast
 
 from google.oauth2 import service_account
 # noinspection PyProtectedMember
 from googleapiclient.discovery import Resource, build
 from googleapiclient.http import HttpRequest, MediaIoBaseDownload
-from hashlib import md5
 from httplib2 import Http
-from pathlib import Path
 from structlog import getLogger
-from typing import Any, cast
 
+import blabgddatalake.remote.file as remotef
+import blabgddatalake.remote.gwfile as remotegwf
+import blabgddatalake.remote.regularfile as remoterf
 from blabgddatalake.config import GoogleDriveConfig
 from blabgddatalake.formats import ExportFormat
-import blabgddatalake.remote.file as remotef
-import blabgddatalake.remote.regularfile as remoterf
-import blabgddatalake.remote.gwfile as remotegwf
 
 _logger = getLogger(__name__)
 

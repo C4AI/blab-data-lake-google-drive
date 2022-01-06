@@ -1,0 +1,23 @@
+name: Sytax and style checks
+
+on:
+  push:
+    branches: [ master, develop ]
+  pull_request:
+    branches: '*'
+
+jobs:
+  pre-commit:
+    runs-on: ubuntu-latest
+    steps:
+
+      - name: Checkout repository
+        uses: actions/checkout@v2
+
+      - name: Set up Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: '^3.10'
+
+      - name: Run pre-commit
+        uses: pre-commit/action@v2.0.3
