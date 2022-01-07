@@ -1,5 +1,7 @@
 name: Tests
 
+env:
+  poetry-version: '1.2.0a2'
 on:
   push:
     branches: '*'
@@ -7,7 +9,7 @@ on:
     branches: '*'
 
 jobs:
-  all-test:
+  all-tests:
     runs-on: ubuntu-latest
     steps:
 
@@ -19,15 +21,35 @@ jobs:
         with:
           python-version: '^3.10'
 
+      - name: Load cached Poetry
+        id: cached-poetry
+        uses: actions/cache@v2
+        with:
+          path: ~/.local
+          key: poetry-${{ env.poetry-version }}_2
+
       - name: Install Poetry
+        id: install-poetry
+        if: steps.cached-poetry.outputs.cache-hit != 'true'
         uses: snok/install-poetry@v1
         with:
-          version: 1.2.0a2
+          version: ${{ env.poetry-version }}
+          virtualenvs-create: true
+          virtualenvs-in-project: true
+
+      - name: Load cached dependencies
+        id: cached-dependencies
+        uses: actions/cache@v2
+        with:
+          path: .venv
+          key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}_2
 
       - name: Install dependencies
+        if: steps.cached-dependencies.outputs.cache-hit != 'true'
         run: |
           poetry install --no-interaction --with=test
 
       - name: Run tests
         run: |
-          poetry run python -m unittest
+          source .venv/bin/activate
+          python -m unittest
