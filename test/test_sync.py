@@ -1,12 +1,12 @@
 import unittest
+from test.gdmock import (GDDirectoryMock, GDFileMock, GDGoogleDocsFileMock,
+                         GDGoogleDrawingsFileMock, GDGoogleJamboardFileMock,
+                         GDGoogleSheetsFileMock, GDGoogleSlidesFileMock,
+                         GDGoogleWorkspaceFileMock, GDHttpMock,
+                         GDRegularFileMock, GDServiceMock)
 from typing import Any, Callable, TypeVar, cast
 
 from dateutil import parser as timestamp_parser
-from gdmock import (GDDirectoryMock, GDFileMock, GDGoogleDocsFileMock,
-                    GDGoogleDrawingsFileMock, GDGoogleJamboardFileMock,
-                    GDGoogleSheetsFileMock, GDGoogleSlidesFileMock,
-                    GDGoogleWorkspaceFileMock, GDHttpMock, GDRegularFileMock,
-                    GDServiceMock)
 from httplib2 import Http
 from overrides import overrides
 from pyfakefs.fake_filesystem_unittest import Patcher
@@ -27,7 +27,7 @@ def fakefs(func: FunT) -> FunT:
 
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         with Patcher() as p:
-            p.fs.add_real_file('drive.v3.json')
+            p.fs.add_real_file('test/drive.v3.json')
             func(*args, **kwargs)
 
     return cast(FunT, wrapper)

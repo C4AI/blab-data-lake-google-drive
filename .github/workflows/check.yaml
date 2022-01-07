@@ -1,4 +1,4 @@
-name: Sytax and style checks
+name: Syntax and style checks
 
 on:
   push:
