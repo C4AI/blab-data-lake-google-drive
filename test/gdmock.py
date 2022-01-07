@@ -8,11 +8,11 @@ from pathlib import Path
 from random import choices as random_choices
 from random import randint
 from string import ascii_letters, digits
+from test.fieldparser import ALL_FIELDS, parse_fields
 from typing import Any
 from urllib.parse import parse_qs, urlparse
 
 from faker import Faker
-from fieldparser import ALL_FIELDS, parse_fields
 from googleapiclient.discovery import build
 from httplib2 import Http, Response
 
@@ -143,7 +143,6 @@ class GDGoogleWorkspaceFileMock(GDFileMock):
 
     def __post_init__(self) -> None:
         super().__post_init__()
-        print(self.mimeType)
         self.exportLinks: dict[str, str] = {
             extension_to_mime_type[extension]:
             'https://docs.google.com/feeds/download/documents/export/'
@@ -272,7 +271,7 @@ class GDHttpMock():
         q = parse_qs(o.query)
         fields = parse_fields(GoogleDriveService.FILE_FIELDS)
         if o.path == '/discovery/v1/apis/drive/v3/rest':
-            with open('drive.v3.json') as f:
+            with open('test/drive.v3.json') as f:
                 return Response({}), f.read().encode('utf-8')
         if o.path.startswith('/drive/v3/files/'):
             file_id = o.path.rsplit('/', 1)[-1]
