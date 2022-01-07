@@ -10,6 +10,7 @@ from sqlalchemy import (Boolean, Column, ForeignKey, Integer, String,
                         UniqueConstraint)
 from sqlalchemy.orm import backref, relationship
 
+from blabgddatalake.formats import ExportFormat
 from blabgddatalake.local import Base, _CommaSeparatedValues, _TimestampWithTZ
 from blabgddatalake.local.file import LocalFile
 from blabgddatalake.local.regularfile import LocalRegularFile
@@ -39,6 +40,17 @@ class LocalGoogleWorkspaceFile(LocalFile):
             ``True`` if the file can be exported, ``False`` otherwise
         """
         return self.head_version.can_export
+
+    @property
+    def export_formats(self) -> list[ExportFormat]:
+        """List of formats to which the file can be exported.
+
+        Returns:
+            the list of export formats
+        """
+        return list(
+            map(lambda ext: ExportFormat.from_extension(ext),
+                self.head_version.extensions))
 
     @overrides
     def as_dict(self,

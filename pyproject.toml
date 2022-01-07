@@ -9,7 +9,7 @@ python = "^3.10"
 python-dateutil = "^2.8.2"
 google-api-python-client = "^2.34.0"
 google-auth = "^2.3.3"
-SQLAlchemy = {version = "^1.4.27", extras = ["mypy"]}
+SQLAlchemy = { version = "^1.4.27", extras = ["mypy"] }
 packaging = "^21.3"
 structlog = "^21.4"
 Flask = "^2.0.2"
@@ -29,7 +29,7 @@ flake8-bugbear = "*"
 types-waitress = "*"
 types-python-dateutil = "*"
 types-Werkzeug = "*"
-python-lsp-server = {extras = ["all"], version = "*"}
+python-lsp-server = { extras = ["all"], version = "*" }
 pyupgrade = "*"
 mypy = "*"
 yapf = "*"
@@ -49,7 +49,8 @@ optional = true
 
 [tool.poetry.group.test.dependencies]
 Faker = "^11.1.0"
-pysqlite = "^2.8.3"
+pyfakefs = "^4.5.3"
+sly = "^0.4"
 
 [build-system]
 requires = ["poetry-core^1.2"]

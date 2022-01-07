@@ -21,12 +21,6 @@ from blabgddatalake.formats import ExportFormat
 
 _logger = getLogger(__name__)
 
-_FILE_FIELDS = ', '.join([
-    'id', 'name', 'parents', 'kind', 'mimeType', 'webViewLink', 'md5Checksum',
-    'size', 'createdTime', 'modifiedTime', 'lastModifyingUser',
-    'headRevisionId', 'iconLink', 'capabilities', 'exportLinks'
-])
-
 
 class GoogleDriveService:
     """A class that wraps Google Drive API consumer to get the directory tree.
@@ -35,6 +29,13 @@ class GoogleDriveService:
     from a Google Drive directory or shared drive.
     """
 
+    FILE_FIELDS = ', '.join([
+        'id', 'name', 'parents', 'kind', 'mimeType', 'webViewLink',
+        'md5Checksum', 'size', 'createdTime', 'modifiedTime',
+        'lastModifyingUser', 'headRevisionId', 'iconLink',
+        'capabilities/canDownload', 'exportLinks'
+    ])
+
     def __init__(self,
                  gd_config: GoogleDriveConfig,
                  _http: Http | None = None,
@@ -42,10 +43,10 @@ class GoogleDriveService:
         """
         Args:
             gd_config: service configuration
-            _service: an optional existing :class:`Resource` instance to reuse
-                (usually should be `None` except for testing purposes)
             _http: used to make HTTP requests (usually should be `None`
                 except for testing purposes)
+            _service: an optional existing :class:`Resource` instance to reuse
+                (usually should be `None` except for testing purposes)
 
         In most cases, `_service` should be omitted and the attribute
         :attr:`service` will be set to a fresh instance created by the
@@ -76,7 +77,7 @@ class GoogleDriveService:
                       driveId=shared_drive_id or None,
                       corpora='drive' if shared_drive_id else 'user',
                       pageSize=int(self.gd_config.page_size),
-                      fields=f'nextPageToken, files({_FILE_FIELDS})',
+                      fields=f'nextPageToken, files({self.FILE_FIELDS})',
                       orderBy='folder, name',
                       q=q)
         page_token = None
@@ -96,7 +97,7 @@ class GoogleDriveService:
         request = self.service.files().get(
             fileId=file_id,
             supportsAllDrives=bool(self.gd_config.shared_drive_id),
-            fields=_FILE_FIELDS,
+            fields=self.FILE_FIELDS,
         )
         return cast(dict[str, Any],
                     request.execute(num_retries=self.num_retries))

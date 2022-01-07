@@ -1,12 +1,23 @@
+import json
+import re
+from collections import defaultdict
 from csv import reader as csv_reader
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field, is_dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from random import choices as random_choices
 from random import randint
 from string import ascii_letters, digits
+from typing import Any
+from urllib.parse import parse_qs, urlparse
 
 from faker import Faker
+from fieldparser import ALL_FIELDS, parse_fields
+from googleapiclient.discovery import build
+from httplib2 import Http, Response
+
+from blabgddatalake.config import GoogleDriveConfig
+from blabgddatalake.remote.gd import GoogleDriveService
 
 fake = Faker()
 
@@ -83,11 +94,10 @@ class GDLastModifyingUserMock:
 
 @dataclass
 class GDFileMock:
-
-    kind: str = 'drive#file'
-    id: str = field(default_factory=fake_file_id)
     name: str = field(
         default_factory=lambda: fake_string(ascii_letters, randint(1, 15)))
+    kind: str = 'drive#file'
+    id: str = field(default_factory=fake_file_id)
     mimeType: str = 'application/octet-stream'
     parents: list[str] = field(default_factory=list)
     webViewLink: str = field(init=False)
@@ -133,6 +143,7 @@ class GDGoogleWorkspaceFileMock(GDFileMock):
 
     def __post_init__(self) -> None:
         super().__post_init__()
+        print(self.mimeType)
         self.exportLinks: dict[str, str] = {
             extension_to_mime_type[extension]:
             'https://docs.google.com/feeds/download/documents/export/'
@@ -154,63 +165,141 @@ with open(formats_csv) as csvfile:
     }
 
 
+@dataclass
 class GDGoogleDocsFileMock(GDGoogleWorkspaceFileMock):
-    mimeType = _gw_files_prefix + 'document'
+    mimeType: str = _gw_files_prefix + 'document'
     _web_view_pattern: str = 'https://docs.google.com/document/d/{}/edit'
-    _export_extensions = field(
+    _export_extensions: list[str] = field(
         default_factory=lambda: 'rtf,odt,html,pdf,epub,html.zip,docx,txt'.
         split(','))
 
 
+@dataclass
 class GDGoogleDrawingsFileMock(GDGoogleWorkspaceFileMock):
-    mimeType = _gw_files_prefix + 'drawing'
+    mimeType: str = _gw_files_prefix + 'drawing'
     _web_view_pattern: str = 'https://docs.google.com/drawings/d/{}/edit'
-    _export_extensions = field(
+    _export_extensions: list[str] = field(
         default_factory=lambda: 'svg,png,pdf,jpg'.split(','))
 
 
+@dataclass
 class GDGoogleFormsFileMock(GDGoogleWorkspaceFileMock):
-    mimeType = _gw_files_prefix + 'form'
+    mimeType: str = _gw_files_prefix + 'form'
     _web_view_pattern: str = 'https://docs.google.com/forms/d/{}/edit'
-    _export_extensions = field(default_factory=list)
+    _export_extensions: list[str] = field(default_factory=list)
 
 
+@dataclass
 class GDGoogleJamboardFileMock(GDGoogleWorkspaceFileMock):
-    mimeType = _gw_files_prefix + 'jam'
+    mimeType: str = _gw_files_prefix + 'jam'
     _web_view_pattern: str = 'https://jamboard.google.com/d/{}/edit'
-    _export_extensions = field(default_factory=lambda: ['pdf'])
+    _export_extensions: list[str] = field(default_factory=lambda: ['pdf'])
 
 
+@dataclass
 class GDGoogleSlidesFileMock(GDGoogleWorkspaceFileMock):
-    mimeType = _gw_files_prefix + 'presentation'
+    mimeType: str = _gw_files_prefix + 'presentation'
     _web_view_pattern: str = 'https://docs.google.com/presentation/d/{}/edit'
-    _export_extensions = field(
+    _export_extensions: list[str] = field(
         default_factory=lambda: 'odp,pdf,pptx,txt'.split(','))
 
 
+@dataclass
 class GDGoogleMyMapsFileMock(GDGoogleWorkspaceFileMock):
     id: str = field(default_factory=fake_file_id)  # 33 chars
-    mimeType = _gw_files_prefix + 'map'
+    mimeType: str = _gw_files_prefix + 'map'
     _web_view_pattern: str = 'https://www.google.com/maps/d/edit?mid={}'
-    _export_extensions = field(default_factory=list)
+    _export_extensions: list[str] = field(default_factory=list)
 
 
+@dataclass
 class GDGoogleSheetsFileMock(GDGoogleWorkspaceFileMock):
-    mimeType = _gw_files_prefix + 'spreadsheet'
+    mimeType: str = _gw_files_prefix + 'spreadsheet'
     _web_view_pattern: str = 'https://docs.google.com/spreadsheets/d/{}/edit'
-    _export_extensions = field(
+    _export_extensions: list[str] = field(
         default_factory=lambda: 'ots,tsv,pdf,xlsx,csv,html.zip,ods'.split(','))
 
 
+@dataclass
 class GDGoogleSitesFileMock(GDGoogleWorkspaceFileMock):
     id: str = field(default_factory=fake_file_id)  # 33 chars
-    mimeType = _gw_files_prefix + 'site'
+    mimeType: str = _gw_files_prefix + 'site'
     _web_view_pattern: str = 'https://sites.google.com/d/{}/edit'
-    _export_extensions = field(default_factory=lambda: ['txt'])
+    _export_extensions: list[str] = field(default_factory=lambda: ['txt'])
 
 
+@dataclass
 class GDGoogleAppsScriptFileMock(GDGoogleWorkspaceFileMock):
     id: str = field(default_factory=lambda: fake_file_id(57))
-    mimeType = _gw_files_prefix + 'script'
+    mimeType: str = _gw_files_prefix + 'script'
     _web_view_pattern: str = 'https://script.google.com/d/{}/edit'
-    _export_extensions = field(default_factory=list)
+    _export_extensions: list[str] = field(default_factory=list)
+
+
+def to_dict(obj: object, fields: list[...]) -> dict[str, ...]:
+    d: dict[str, Any] = defaultdict(dict)
+    for k, field_list in fields:
+        try:
+            v = getattr(obj, k)
+        except AttributeError:
+            continue
+        if field_list == ALL_FIELDS:
+            d[k] = {
+                key: value
+                for key, value in asdict(v).items() if not key.startswith('_')
+            } if is_dataclass(v) else v
+        else:
+            d[k].update(to_dict(v, field_list))
+    return d
+
+
+class GDHttpMock():
+    """Mock of :cls:`httplib2.Http`."""
+
+    def __init__(self, state: dict[str, GDFileMock] | None = None):
+        self.state: dict[str, GDFileMock] = state or {}
+
+    def request(
+        self,
+        uri: str,
+        method: str = "GET",
+        body: str | None = None,
+        headers: dict[str, str] | None = None,
+        redirections: int = 5,
+        connection_type: str | None = None,
+    ) -> tuple[Response, bytes]:
+        o = urlparse(uri)
+        q = parse_qs(o.query)
+        fields = parse_fields(GoogleDriveService.FILE_FIELDS)
+        if o.path == '/discovery/v1/apis/drive/v3/rest':
+            with open('drive.v3.json') as f:
+                return Response({}), f.read().encode('utf-8')
+        if o.path.startswith('/drive/v3/files/'):
+            file_id = o.path.rsplit('/', 1)[-1]
+            try:
+                file = self.state[file_id]
+            except KeyError:
+                return Response({'status': 404}), b''
+            return Response({}), json.dumps(to_dict(file,
+                                                    fields)).encode('utf-8')
+        if o.path == '/drive/v3/files':
+            m = re.match("not trashed and '([^']+)' in parents", q['q'][0])
+            if not m:
+                raise NotImplementedError
+            parent_id = m.group(1)
+            if parent_id not in self.state:
+                return Response({'status': 404}), b''
+            return Response({}), json.dumps({
+                'files': [
+                    to_dict(f, fields) for f in self.state.values()
+                    if (p := f.parents) and p[0] == parent_id
+                ]
+            }).encode('utf-8')
+        return Response({}), b'{}'
+
+
+class GDServiceMock(GoogleDriveService):
+
+    def __init__(self, gd_config: GoogleDriveConfig, http: Http):
+        service = build('drive', 'v3', http=http, static_discovery=False)
+        super().__init__(gd_config, http, service)
