@@ -16,6 +16,7 @@ from __future__ import annotations
 import os
 import re
 import sys
+from typing import Any
 
 sys.path.insert(0, os.path.abspath('..'))
 from blabgddatalake import __version__  # noqa: E402
@@ -196,8 +197,8 @@ html_theme_options = {
 }
 
 
-def fix_sig(app, what, name, obj, options, signature,
-            return_annotation):  # type: ignore[no-untyped-def] # noqa: ANN
+def fix_sig(app: Any, what: Any, name: Any, obj: Any, options: Any,
+            signature: Any, return_annotation: Any) -> tuple[str, Any]:
     """Hide types from function signature."""  # noqa:DAR
     from inspect import Parameter, Signature
     if not callable(obj):
@@ -210,8 +211,8 @@ def fix_sig(app, what, name, obj, options, signature,
     return (str(sig), return_annotation)
 
 
-def keep_version(app, what, name, obj, would_skip,
-                 options):  # type: ignore[no-untyped-def] # noqa: ANN
+def keep_version(app: Any, what: Any, name: Any, obj: Any, would_skip: bool,
+                 options: Any) -> bool:
     """Do not ignore __version__."""  # noqa:DAR
     if name == '__version__':
         return False

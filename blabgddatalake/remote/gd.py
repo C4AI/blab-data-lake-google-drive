@@ -211,7 +211,7 @@ class GoogleDriveService:
         request = self.service.about().get(fields='exportFormats')
         result = request.execute(num_retries=self.num_retries)
         return {
-            k: list(map(lambda mt: ExportFormat.from_mime_type(mt), v))
+            k: list(map(ExportFormat.from_mime_type, v))
             for k, v in result['exportFormats'].items()
         }
 

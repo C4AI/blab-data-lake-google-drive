@@ -20,7 +20,7 @@ therefore, the double extension ``html.zip`` is appropriate.
 ref-export-formats>
 """
 
-with open(__file__.rsplit('.', 1)[0] + '.csv') as csvfile:
+with open(__file__.rsplit('.', 1)[0] + '.csv', encoding='utf-8') as csvfile:
     reader = csv_reader(csvfile)
     next(reader)
     gw_mime_type_to_extension = {
