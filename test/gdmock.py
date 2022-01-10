@@ -30,6 +30,10 @@ def fake_file_id(length: int = 33) -> str:
     return fake_string(ascii_letters + digits + '_-', length)
 
 
+def fake_page_token_id() -> str:
+    return fake_string(ascii_letters + digits + '_-!~=', randint(300, 500))
+
+
 def fake_revision_id() -> str:
     return fake_string(ascii_letters + digits + '_-', 51)
 
@@ -259,13 +263,15 @@ class GDHttpMock():
         self.state: dict[str, GDFileMock] = state or {}
         """State of the simulated Google Drive folder"""
 
-        self.pending: list[tuple[str, str, str,
-                                 list[Any] | dict[str, Any]]] = []
+        self.pending: dict[tuple[str, str, str],
+                           list[Any] | dict[str, Any]] = {}
         """Content for multi-part requests
 
-        (path, query, page_token) --> remaining content
+        (path, relevant query part [without page token], page_token)
+        --> full response (incl. future page token)
         """
 
+    # noinspection PyUnusedLocal
     def request(
         self,
         uri: str,
@@ -290,17 +296,47 @@ class GDHttpMock():
             return Response({}), json.dumps(to_dict(file,
                                                     fields)).encode('utf-8')
         if o.path == '/drive/v3/files':
+            try:
+                page_size = int(q['pageSize'][0])
+            except (KeyError, IndexError, ValueError):
+                page_size = 100
             m = re.match("not trashed and '([^']+)' in parents", q['q'][0])
             if not m:
                 raise NotImplementedError
             parent_id = m.group(1)
             if parent_id not in self.state:
                 return Response({'status': 404}), b''
+            if (t := q.get('pageToken')) is not None:
+                try:
+                    part = self.pending[(o.path, str(parent_id), t[0])]
+                except KeyError:
+                    return Response({'status': 404}), b''
+                else:
+                    return Response({}), json.dumps(part).encode('utf-8')
             result = [
                 to_dict(f, fields) for f in self.state.values()
                 if (p := f.parents) and p[0] == parent_id
             ]
-            return Response({}), json.dumps({'files': result}).encode('utf-8')
+            result_page: dict[str, Any]
+            if len(result) <= page_size:
+                result_page = {'files': result}
+            else:
+                next_token = fake_page_token_id()
+                result_page = {
+                    'files': result[:page_size],
+                    'nextPageToken': next_token
+                }
+                start = page_size
+                while start < len(result):
+                    cur_token, next_token = next_token, fake_page_token_id()
+                    cont: dict[str, Any] = {
+                        'files': result[start:start + page_size],
+                    }
+                    if start + page_size < len(result):
+                        cont['nextPageToken'] = next_token
+                    self.pending[(o.path, str(parent_id), cur_token)] = cont
+                    start += page_size
+            return Response({}), json.dumps(result_page).encode('utf-8')
         return Response({}), b'{}'
 
 
