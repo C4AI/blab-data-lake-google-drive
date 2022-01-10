@@ -85,7 +85,7 @@ class GoogleDriveSync:
                     os_delete_file(name)
                 except FileNotFoundError:
                     log.warn('not deleting file because it no longer exists')
-                except Exception:
+                except OSError:
                     log.warn('could not delete file')
                 else:
                     log.info('file deleted')
@@ -114,10 +114,10 @@ class GoogleDriveSync:
         ]
         if isinstance(rf, RemoteDirectory):
             return LocalDirectory(**self._getattrs(rf, fields + ['is_root']))
-        elif isinstance(rf, RemoteRegularFile):
+        if isinstance(rf, RemoteRegularFile):
             return LocalRegularFile(
                 **self._getattrs(rf, fields + ['head_revision_id']))
-        elif isinstance(rf, RemoteGoogleWorkspaceFile):
+        if isinstance(rf, RemoteGoogleWorkspaceFile):
             return LocalGoogleWorkspaceFile(**self._getattrs(rf, fields))
         raise RuntimeError  # should not happen
 
@@ -172,15 +172,14 @@ class GoogleDriveSync:
             rrf = cast(RemoteRegularFile, rf)
             return (rrf.head_revision_id != lf.head_revision_id
                     or rrf.can_download != lf.can_download)
-        elif isinstance(lf, LocalGoogleWorkspaceFile):
+        if isinstance(lf, LocalGoogleWorkspaceFile):
             rgwf = cast(RemoteGoogleWorkspaceFile, rf)
             return (rf.modified_time > lf.modified_time
                     or rgwf.can_export != lf.can_export or list(
                         map(lambda fmt: fmt.extension,
                             self._export_formats.get(rf.mime_type, []))) !=
                     lf.head_version.extensions)
-        else:
-            return False
+        return False
 
     def _download(self, f: RemoteRegularFile) -> bool | None:
         fn = self._root_path / f.local_name
@@ -211,8 +210,8 @@ class GoogleDriveSync:
             ext = list(
                 map(lambda fmt: fmt.extension,
                     self._export_formats.get(rf.mime_type, [])))
-            if ver.extensions != ext or []:
-                ver.extensions = ext or []
+            if ver.extensions != ext:
+                ver.extensions = ext
                 changed = True
         elif isinstance(rf, RemoteRegularFile):
             fields += ['head_revision_id']
@@ -321,15 +320,15 @@ class GoogleDriveSync:
                     # file contents have changed
                     log.info('file has changed')
                     if isinstance(lf, LocalRegularFile):
+                        assert isinstance(f, RemoteRegularFile)
                         old_rev = lf.head_revision
-                        if old_rev.revision_id != \
-                                cast(RemoteRegularFile, f).head_revision_id:
+                        if old_rev.revision_id != f.head_revision_id:
                             old_rev.obsolete_since = datetime.now()
                             log.info('old file revision marked for deletion')
                     elif isinstance(lf, LocalGoogleWorkspaceFile):
+                        assert isinstance(f, RemoteGoogleWorkspaceFile)
                         old_ver = lf.head_version
-                        if (old_ver.modified_time < cast(
-                                RemoteGoogleWorkspaceFile, f).modified_time):
+                        if (old_ver.modified_time < f.modified_time):
                             old_ver.obsolete_since = datetime.now()
                             log.info('old GW file version marked for deletion')
                     self._sync_new_file(session, f, lf)

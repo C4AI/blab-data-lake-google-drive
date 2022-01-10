@@ -33,8 +33,8 @@ class AutoConvertFromStringDataClass:
                     converted = f.type(value)
                 except (ValueError, TypeError) as e:
                     raise TypeError(
-                        'Field {} must be {}; "{}" is invalid'.format(
-                            f.name, f.type.__name__, value)) from e
+                        f'Field {f.name} must be {f.type.__name__}; '
+                        f'"{value}" is invalid') from e
                 else:
                     setattr(self, f.name, converted)
 
@@ -118,7 +118,7 @@ class GoogleDriveConfig(AutoConvertFromStringDataClass):
                 filter(lambda l: l.count(':') == 1, lines)))
         return {
             t: list(
-                map(lambda ext: ExportFormat.from_extension(ext),
+                map(ExportFormat.from_extension,
                     filter(lambda f: f, fmt.split(','))))
             for t, fmt in type_formats
         }

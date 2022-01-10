@@ -1,6 +1,6 @@
 import unittest
-from test import BaseTest, create_virtual_gd
-from test.gdmock import GDFileMock, GDHttpMock, GDServiceMock
+from test import BaseTest
+from test.gdmock import GDHttpMock, GDServiceMock
 from typing import Any, Callable, TypeVar, cast
 
 from httplib2 import Http
@@ -27,20 +27,15 @@ class SyncTest(BaseTest):
 
     @overrides
     def setUp(self) -> None:
-        all_files = create_virtual_gd()
-        self.all_files = all_files
+        super().setUp()
         self.discovery_http = cast(Http,
                                    GDHttpMock(state=self.all_files_by_id))
         self.gd_config = Config(
             GoogleDriveConfig('not-used.json', '_dummy_shared_drive',
-                              all_files['root'].id),
+                              self.all_files['root'].id),
             DatabaseConfig('sqlite', 'pysqlite'),
             LocalConfig('/pyfakefs-virtual-fs', 60),
             LakeServerConfig('127.0.0.1', 8080))
-
-    @property
-    def all_files_by_id(self) -> dict[str, GDFileMock]:
-        return {f.id: f for f in self.all_files.values()}
 
     @fakefs
     def test_initial(self) -> None:

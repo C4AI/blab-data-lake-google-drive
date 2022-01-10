@@ -49,8 +49,7 @@ class LocalGoogleWorkspaceFile(LocalFile):
             the list of export formats
         """
         return list(
-            map(lambda ext: ExportFormat.from_extension(ext),
-                self.head_version.extensions))
+            map(ExportFormat.from_extension, self.head_version.extensions))
 
     @overrides
     def as_dict(self,

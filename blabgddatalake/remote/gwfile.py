@@ -32,7 +32,7 @@ class RemoteGoogleWorkspaceFile(RemoteFile):
         Returns:
             Local file name
         """
-        return (self.id + '_' + self.modified_time.strftime('%Y%m%d_%H%M%S%f'))
+        return self.id + '_' + self.modified_time.strftime('%Y%m%d_%H%M%S%f')
 
     @classmethod
     def from_dict(
@@ -53,7 +53,7 @@ class RemoteGoogleWorkspaceFile(RemoteFile):
             an instance with the metadata obtained from ``f``
         """
         formats = list(
-            map(lambda mt: ExportFormat.from_mime_type(mt),
+            map(ExportFormat.from_mime_type,
                 metadata.get('exportLinks', {}).keys()))
         return RemoteGoogleWorkspaceFile(
             metadata['name'],

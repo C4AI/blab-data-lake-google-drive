@@ -235,7 +235,7 @@ class GDGoogleAppsScriptFileMock(GDGoogleWorkspaceFileMock):
     _export_extensions: list[str] = field(default_factory=list)
 
 
-def to_dict(obj: object, fields: list[...]) -> dict[str, ...]:
+def to_dict(obj: object, fields: list[Any]) -> dict[str, Any]:
     d: dict[str, Any] = defaultdict(dict)
     for k, field_list in fields:
         try:
@@ -257,6 +257,14 @@ class GDHttpMock():
 
     def __init__(self, state: dict[str, GDFileMock] | None = None):
         self.state: dict[str, GDFileMock] = state or {}
+        """State of the simulated Google Drive folder"""
+
+        self.pending: list[tuple[str, str, str,
+                                 list[Any] | dict[str, Any]]] = []
+        """Content for multi-part requests
+
+        (path, query, page_token) --> remaining content
+        """
 
     def request(
         self,
@@ -288,12 +296,11 @@ class GDHttpMock():
             parent_id = m.group(1)
             if parent_id not in self.state:
                 return Response({'status': 404}), b''
-            return Response({}), json.dumps({
-                'files': [
-                    to_dict(f, fields) for f in self.state.values()
-                    if (p := f.parents) and p[0] == parent_id
-                ]
-            }).encode('utf-8')
+            result = [
+                to_dict(f, fields) for f in self.state.values()
+                if (p := f.parents) and p[0] == parent_id
+            ]
+            return Response({}), json.dumps({'files': result}).encode('utf-8')
         return Response({}), b'{}'
 
 

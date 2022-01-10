@@ -14,7 +14,7 @@ from blabgddatalake.remote.gwfile import RemoteGoogleWorkspaceFile
 from blabgddatalake.remote.regularfile import RemoteRegularFile
 
 
-def create_virtual_gd():
+def create_virtual_gd() -> dict[str, GDFileMock]:
     all_files = {
         'root': GDDirectoryMock('root-dir'),
         'd1': GDDirectoryMock('d1-dir'),
@@ -46,6 +46,13 @@ def create_virtual_gd():
 
 
 class BaseTest(unittest.TestCase):
+
+    def setUp(self) -> None:
+        self.all_files = create_virtual_gd()
+
+    @property
+    def all_files_by_id(self) -> dict[str, GDFileMock]:
+        return {f.id: f for f in self.all_files.values()}
 
     def check_equal_file(self, fm: GDFileMock,
                          f: RemoteFile | LocalFile) -> None:

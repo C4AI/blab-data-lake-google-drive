@@ -119,11 +119,10 @@ def setup_logger(level: int) -> None:
     Args:
         level: the logger level
     """
-    from sys import stdout
     logging.basicConfig(
         level=logging.INFO,
         format="%(message)s",
-        stream=stdout,
+        stream=sys.stdout,
     )
     structlog.configure(
         wrapper_class=structlog.make_filtering_bound_logger(level))
