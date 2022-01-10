@@ -3,8 +3,10 @@ from test.gdmock import (GDDirectoryMock, GDFileMock, GDGoogleDocsFileMock,
                          GDGoogleDrawingsFileMock, GDGoogleJamboardFileMock,
                          GDGoogleSheetsFileMock, GDGoogleSlidesFileMock,
                          GDGoogleWorkspaceFileMock, GDRegularFileMock)
+from typing import Any, Callable, TypeVar, cast
 
 from dateutil import parser as timestamp_parser
+from pyfakefs.fake_filesystem_unittest import Patcher
 
 from blabgddatalake.local.file import LocalDirectory, LocalFile
 from blabgddatalake.local.gwfile import LocalGoogleWorkspaceFile
@@ -43,6 +45,19 @@ def create_virtual_gd() -> dict[str, GDFileMock]:
     all_files['jb'].parents = [all_files['d1'].id]
     all_files['bi'].parents = [all_files['root'].id]
     return all_files
+
+
+FunT = TypeVar('FunT', bound=Callable[..., Any])
+
+
+def fakefs(func: FunT) -> FunT:
+
+    def wrapper(*args: Any, **kwargs: Any) -> Any:
+        with Patcher() as p:
+            p.fs.add_real_file('test/drive.v3.json')
+            func(*args, **kwargs)
+
+    return cast(FunT, wrapper)
 
 
 class BaseTest(unittest.TestCase):
