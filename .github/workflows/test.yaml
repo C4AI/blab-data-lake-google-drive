@@ -26,7 +26,7 @@ jobs:
         uses: actions/cache@v2
         with:
           path: ~/.local
-          key: poetry-${{ env.poetry-version }}_2
+          key: poetry-${{ env.poetry-version }}_3
 
       - name: Install Poetry
         id: install-poetry
@@ -42,9 +42,11 @@ jobs:
         uses: actions/cache@v2
         with:
           path: .venv
-          key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}_2
+          key: venv-${{ runner.os }}-${{ hashFiles('**/poetry.lock') }}_3
 
       - name: Install dependencies
+        env:
+          POETRY_VIRTUALENVS_IN_PROJECT: true
         if: steps.cached-dependencies.outputs.cache-hit != 'true'
         run: |
           poetry install --no-interaction --with=test
