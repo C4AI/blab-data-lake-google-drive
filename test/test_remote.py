@@ -34,10 +34,12 @@ class SyncTest(BaseTest):
     def test_small_pages(self) -> None:
         """Conversion from the API-provided data to the classes in `remote`."""
         for i in [1, 2, 5]:
-            gdservice = GDServiceMock(
-                replace(self.gd_config.google_drive, page_size=i),
-                self.discovery_http)
-            self.check_equal_tree(self.all_files_by_id, gdservice.get_tree())
+            with self.subTest(page_size=i):
+                gdservice = GDServiceMock(
+                    replace(self.gd_config.google_drive, page_size=i),
+                    self.discovery_http)
+                self.check_equal_tree(self.all_files_by_id,
+                                      gdservice.get_tree())
 
 
 if __name__ == '__main__':
