@@ -1,4 +1,5 @@
 import unittest
+from functools import wraps
 from test.gdmock import (GDDirectoryMock, GDFileMock, GDGoogleDocsFileMock,
                          GDGoogleDrawingsFileMock, GDGoogleJamboardFileMock,
                          GDGoogleSheetsFileMock, GDGoogleSlidesFileMock,
@@ -12,6 +13,7 @@ from pyfakefs.fake_filesystem_unittest import Patcher
 
 from blabgddatalake.config import (Config, DatabaseConfig, GoogleDriveConfig,
                                    LakeServerConfig, LocalConfig)
+from blabgddatalake.formats import ExportFormat
 from blabgddatalake.local.file import LocalDirectory, LocalFile
 from blabgddatalake.local.gwfile import LocalGoogleWorkspaceFile
 from blabgddatalake.local.regularfile import LocalRegularFile
@@ -56,9 +58,11 @@ FunT = TypeVar('FunT', bound=Callable[..., Any])
 
 def fakefs(func: FunT) -> FunT:
 
+    @wraps(func)
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         with Patcher() as p:
             p.fs.add_real_file('test/drive.v3.json')
+            p.fs.add_real_file('test/export-formats.json')
             func(*args, **kwargs)
 
     return cast(FunT, wrapper)
@@ -69,9 +73,20 @@ class BaseTest(unittest.TestCase):
     def setUp(self) -> None:
         self.all_files = create_virtual_gd()
         self.http = cast(Http, GDHttpMock(state=self.all_files_by_id))
+
+        def to_fmt(*extensions: str) -> list[ExportFormat]:
+            return list(map(ExportFormat.from_extension, extensions))
+
+        export_formats = {
+            'document': to_fmt('pdf', 'docx', 'txt'),
+            'presentation': to_fmt('pdf', 'pptx'),
+            'spreadsheet': to_fmt('xlsx', 'csv'),
+        }
         self.config = Config(
-            GoogleDriveConfig('not-used.json', '_dummy_shared_drive',
-                              self.all_files['root'].id),
+            GoogleDriveConfig('not-used.json',
+                              '_dummy_shared_drive',
+                              self.all_files['root'].id,
+                              google_workspace_export_formats=export_formats),
             DatabaseConfig('sqlite', 'pysqlite'),
             LocalConfig('/pyfakefs-virtual-fs', 60),
             LakeServerConfig('127.0.0.1', 8080))
@@ -80,8 +95,11 @@ class BaseTest(unittest.TestCase):
     def all_files_by_id(self) -> dict[str, GDFileMock]:
         return {f.id: f for f in self.all_files.values()}
 
-    def check_equal_file(self, fm: GDFileMock,
-                         f: RemoteFile | LocalFile) -> None:
+    def check_equal_file(
+            self,
+            fm: GDFileMock,
+            f: RemoteFile | LocalFile,
+            export_formats: list[ExportFormat] | None = None) -> None:
         self.assertEqual(fm.id, f.id)
         self.assertEqual(fm.name, f.name)
         self.assertEqual(fm.mimeType, f.mime_type)
@@ -106,16 +124,23 @@ class BaseTest(unittest.TestCase):
             assert isinstance(  # to avoid mypy warning
                 f, RemoteGoogleWorkspaceFile | LocalGoogleWorkspaceFile)
             self.assertEqual(fm.capabilities.canDownload, f.can_export)
+            expected_export_mime_types = set(fm.exportLinks.keys())
+            if export_formats is not None:
+                expected_export_mime_types &= set(
+                    map(lambda fmt: fmt.mime_type, export_formats))
             self.assertSetEqual(
-                set(fm.exportLinks.keys()),
+                expected_export_mime_types,
                 set(map(lambda fmt: fmt.mime_type, f.export_formats)))
         if not (isinstance(f, RemoteDirectory | LocalDirectory) and f.is_root):
             self.assertListEqual(fm.parents or [],
                                  [f.parent_id] if f.parent_id else [])
 
     def check_equal_tree(
-            self, expected: dict[str, GDFileMock],
-            actual: RemoteDirectory | LocalDirectory | None) -> None:
+            self,
+            expected: dict[str, GDFileMock],
+            actual: RemoteDirectory | LocalDirectory | None,
+            export_formats: dict[str, list[ExportFormat]] | None = None
+    ) -> None:
         if actual is None:
             self.fail('tree should not be None')
         already_checked: set[str] = set()
@@ -129,9 +154,11 @@ class BaseTest(unittest.TestCase):
             except KeyError:
                 self.fail(f'Unexpected file id {rf.id}')
             else:
-                self.check_equal_file(fm, rf)
+                exp = export_formats.get(fm.mimeType.rsplit(
+                    '.', 1)[-1], []) if export_formats is not None else None
+                self.check_equal_file(fm, rf, exp)
                 already_checked.add(rf.id)
-                if isinstance(rf, RemoteDirectory):
-                    for child in rf.children:
+                if isinstance(rf, RemoteDirectory | LocalDirectory):
+                    for child in rf.children or []:
                         pending.append(child)
         self.assertSetEqual(set(expected.keys()), already_checked)

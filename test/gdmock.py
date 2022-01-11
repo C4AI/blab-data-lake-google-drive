@@ -15,9 +15,13 @@ from urllib.parse import parse_qs, urlparse
 from faker import Faker
 from googleapiclient.discovery import build
 from httplib2 import Http, Response
+from overrides import overrides
 
 from blabgddatalake.config import GoogleDriveConfig
+from blabgddatalake.formats import ExportFormat
 from blabgddatalake.remote.gd import GoogleDriveService
+from blabgddatalake.remote.gwfile import RemoteGoogleWorkspaceFile
+from blabgddatalake.remote.regularfile import RemoteRegularFile
 
 fake = Faker()
 
@@ -284,9 +288,11 @@ class GDHttpMock():
         o = urlparse(uri)
         q = parse_qs(o.query)
         fields = parse_fields(GoogleDriveService.FILE_FIELDS)
+
         if o.path == '/discovery/v1/apis/drive/v3/rest':
-            with open('test/drive.v3.json') as f:
-                return Response({}), f.read().encode('utf-8')
+            with open('test/drive.v3.json', 'rb') as fd:
+                return Response({}), fd.read()
+
         if o.path.startswith('/drive/v3/files/'):
             file_id = o.path.rsplit('/', 1)[-1]
             try:
@@ -295,6 +301,7 @@ class GDHttpMock():
                 return Response({'status': 404}), b''
             return Response({}), json.dumps(to_dict(file,
                                                     fields)).encode('utf-8')
+
         if o.path == '/drive/v3/files':
             try:
                 page_size = int(q['pageSize'][0])
@@ -337,6 +344,10 @@ class GDHttpMock():
                     self.pending[(o.path, str(parent_id), cur_token)] = cont
                     start += page_size
             return Response({}), json.dumps(result_page).encode('utf-8')
+
+        if o.path == '/drive/v3/about':
+            with open('test/export-formats.json', 'rb') as fd:
+                return Response({}), fd.read()
         return Response({}), b'{}'
 
 
@@ -345,3 +356,21 @@ class GDServiceMock(GoogleDriveService):
     def __init__(self, gd_config: GoogleDriveConfig, http: Http):
         service = build('drive', 'v3', http=http, static_discovery=False)
         super().__init__(gd_config, http, service)
+        self.download_count: dict[str, int] = defaultdict(int)
+        self.export_count: dict[str, int] = defaultdict(int)
+
+    @overrides
+    def download_file(self,
+                      rf: RemoteRegularFile,
+                      output_file: str,
+                      skip_if_size_matches: bool = True,
+                      also_check_md5: bool = False) -> bool | None:
+        self.download_count[rf.id] += 1
+        return True
+
+    @overrides
+    def export_file(self, rf: RemoteGoogleWorkspaceFile,
+                    formats: list[ExportFormat],
+                    output_file_without_ext: str) -> bool | None:
+        self.export_count[rf.id] += 1
+        return True
