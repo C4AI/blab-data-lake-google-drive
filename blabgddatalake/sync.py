@@ -1,7 +1,7 @@
 """A module that provides methods to sync files from Google Drive."""
-
 from datetime import datetime, timedelta
 from functools import cached_property
+from os import makedirs
 from os import remove as os_delete_file
 from pathlib import Path
 from typing import Any, cast
@@ -65,6 +65,7 @@ class GoogleDriveSync:
         Returns:
             0 if no errors occurred, 1 otherwise
         """
+        makedirs(self.config.local.root_path, exist_ok=True)
         until = datetime.now()
         if delay is not None:
             until -= timedelta(seconds=delay)
@@ -293,6 +294,8 @@ class GoogleDriveSync:
         Returns:
             0 if no errors occurred, 1 otherwise
         """  # noqa: DAR401
+        makedirs(self.config.local.root_path, exist_ok=True)
+
         for ftype, missing in self._unsupported_export_formats.items():
             if missing:
                 unsup = set(map(lambda fmt: fmt.extension, missing))
