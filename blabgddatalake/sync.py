@@ -26,7 +26,10 @@ _logger = getLogger(__name__)
 class GoogleDriveSync:
     """A class that provides useful methods to sync files from Google Drive."""
 
-    def __init__(self, config: Config, _gdservice: GDService | None = None):
+    def __init__(self,
+                 config: Config,
+                 _gdservice: GDService | None = None,
+                 _db: LocalStorageDatabase | None = None):
         """
         Args:
             config: configuration parameters
@@ -34,10 +37,14 @@ class GoogleDriveSync:
                 instance to use (if omitted,
                 a new instance is created based on the configuration
                 parameters)
+            _db: a :class:`LocalStorageDatabase` instance to use
+                (if omitted,
+                a new instance is created based on the configuration
+                parameters)
         """  # noqa:D205,D400
         self.config = config
-        self.db = LocalStorageDatabase(config.database)
         self.gdservice = _gdservice or GDService(config.google_drive)
+        self.db = _db or LocalStorageDatabase(config.database)
 
     @property
     def _deletion_delay(self) -> int | None:

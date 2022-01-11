@@ -103,7 +103,8 @@ class LocalStorageDatabase:
             Google Drive)
         """
         _logger.info('requesting local tree')
-        stmt = select(LocalDirectory).where(LocalDirectory.is_root)
+        stmt = select(LocalDirectory).where(
+            LocalDirectory.is_root & (LocalDirectory.obsolete_since.is_(None)))
         result = session.execute(stmt)
         root = result.scalars().first()
         return root
