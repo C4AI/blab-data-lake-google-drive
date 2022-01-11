@@ -2,12 +2,16 @@ import unittest
 from test.gdmock import (GDDirectoryMock, GDFileMock, GDGoogleDocsFileMock,
                          GDGoogleDrawingsFileMock, GDGoogleJamboardFileMock,
                          GDGoogleSheetsFileMock, GDGoogleSlidesFileMock,
-                         GDGoogleWorkspaceFileMock, GDRegularFileMock)
+                         GDGoogleWorkspaceFileMock, GDHttpMock,
+                         GDRegularFileMock)
 from typing import Any, Callable, TypeVar, cast
 
 from dateutil import parser as timestamp_parser
+from httplib2 import Http
 from pyfakefs.fake_filesystem_unittest import Patcher
 
+from blabgddatalake.config import (Config, DatabaseConfig, GoogleDriveConfig,
+                                   LakeServerConfig, LocalConfig)
 from blabgddatalake.local.file import LocalDirectory, LocalFile
 from blabgddatalake.local.gwfile import LocalGoogleWorkspaceFile
 from blabgddatalake.local.regularfile import LocalRegularFile
@@ -64,6 +68,13 @@ class BaseTest(unittest.TestCase):
 
     def setUp(self) -> None:
         self.all_files = create_virtual_gd()
+        self.http = cast(Http, GDHttpMock(state=self.all_files_by_id))
+        self.config = Config(
+            GoogleDriveConfig('not-used.json', '_dummy_shared_drive',
+                              self.all_files['root'].id),
+            DatabaseConfig('sqlite', 'pysqlite'),
+            LocalConfig('/pyfakefs-virtual-fs', 60),
+            LakeServerConfig('127.0.0.1', 8080))
 
     @property
     def all_files_by_id(self) -> dict[str, GDFileMock]:
@@ -102,10 +113,13 @@ class BaseTest(unittest.TestCase):
             self.assertListEqual(fm.parents or [],
                                  [f.parent_id] if f.parent_id else [])
 
-    def check_equal_tree(self, expected: dict[str, GDFileMock],
-                         actual: RemoteDirectory) -> None:
+    def check_equal_tree(
+            self, expected: dict[str, GDFileMock],
+            actual: RemoteDirectory | LocalDirectory | None) -> None:
+        if actual is None:
+            self.fail('tree should not be None')
         already_checked: set[str] = set()
-        pending: list[RemoteFile] = [actual]
+        pending: list[RemoteFile | LocalFile] = [actual]
         while pending:
             rf = pending.pop()
             if rf.id in already_checked:
