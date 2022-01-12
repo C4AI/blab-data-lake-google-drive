@@ -136,17 +136,21 @@ settings_fn = 'blab-data-lake-settings.cfg'
 config = Config.read_settings(settings_fn)
 
 if options.cmd == 'sync':
-    sync(config)
+    sys.exit(sync(config))
 elif options.cmd == 'cleanup':
-    cleanup(config, options.delay)
+    sys.exit(cleanup(config, options.delay))
 elif options.cmd == 'serve':
-    serve(config, options.port)
+    sys.exit(serve(config, options.port))
 elif options.cmd == 'printlocal':
     db = LocalStorageDatabase(config.database)
     with db.new_session() as session:
         tree = db.get_tree(session)
         if tree:
             tree.print_tree()
+        sys.exit(int(not bool(tree)))
 elif options.cmd == 'printremote':
     gdservice = GDService(config.google_drive)
-    gdservice.get_tree().print_tree()
+    r_tree = gdservice.get_tree()
+    if r_tree:
+        r_tree.print_tree()
+    sys.exit(int(not bool(r_tree)))
