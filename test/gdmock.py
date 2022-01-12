@@ -371,6 +371,6 @@ class GDServiceMock(GoogleDriveService):
     @overrides
     def export_file(self, rf: RemoteGoogleWorkspaceFile,
                     formats: list[ExportFormat],
-                    output_file_without_ext: str) -> bool | None:
+                    output_file_without_ext: str) -> bool:
         self.export_count[rf.id] += 1
         return True

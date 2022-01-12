@@ -151,29 +151,21 @@ class GoogleDriveSync:
                                           **cls._getattrs(rf, fields))
 
     @cached_property
-    def _supported_export_formats(self) -> dict[str, list[ExportFormat]]:
-        return self.gdservice.export_formats()
-
-    @cached_property
     def _chosen_export_formats(self) -> dict[str, list[ExportFormat]]:
         formats = self.config.google_drive.google_workspace_export_formats
         return {('application/vnd.google-apps.' + t): fmt
                 for t, fmt in formats.items()}
 
-    @cached_property
-    def _unsupported_export_formats(self) -> dict[str, set[ExportFormat]]:
-        return {
-            t: set(chosen) - set(self._supported_export_formats.get(t, []))
-            for t, chosen in self._chosen_export_formats.items()
-        }
+    def _export_formats_for_file(
+            self, rf: RemoteGoogleWorkspaceFile) -> list[ExportFormat]:
+        return sorted(
+            set(rf.export_formats)
+            & set(self._chosen_export_formats.get(rf.mime_type, [])))
 
-    @cached_property
-    def _export_formats(self) -> dict[str, list[ExportFormat]]:
-        return {  # formats that are supported AND chosen
-            t: sorted(
-                set(available) & set(self._chosen_export_formats.get(t, [])))
-            for t, available in self._supported_export_formats.items()
-        }
+    def _export_format_extensions_for_file(
+            self, rf: RemoteGoogleWorkspaceFile) -> list[str]:
+        return list(
+            map(lambda fmt: fmt.extension, self._export_formats_for_file(rf)))
 
     def _contents_changed(self, rf: RemoteFile, lf: LocalFile) -> bool:
         if isinstance(lf, LocalRegularFile):
@@ -183,9 +175,8 @@ class GoogleDriveSync:
         if isinstance(lf, LocalGoogleWorkspaceFile):
             rgwf = cast(RemoteGoogleWorkspaceFile, rf)
             return (rf.modified_time > lf.modified_time
-                    or rgwf.can_export != lf.can_export or list(
-                        map(lambda fmt: fmt.extension,
-                            self._export_formats.get(rf.mime_type, []))) !=
+                    or rgwf.can_export != lf.can_export
+                    or self._export_format_extensions_for_file(rgwf) !=
                     lf.head_version.extensions)
         return False
 
@@ -194,7 +185,7 @@ class GoogleDriveSync:
         return self.gdservice.download_file(f, str(fn))
 
     def _export(self, f: RemoteGoogleWorkspaceFile,
-                formats: list[ExportFormat]) -> bool | None:
+                formats: list[ExportFormat]) -> bool:
         fn = self._root_path / f.local_name
         return self.gdservice.export_file(f, formats, str(fn))
 
@@ -215,9 +206,7 @@ class GoogleDriveSync:
             ver = cast(LocalGoogleWorkspaceFile, lf).head_version
             if self._make_fields_equal(ver, rf, ver_fields) != 0:
                 changed = True
-            ext = list(
-                map(lambda fmt: fmt.extension,
-                    self._export_formats.get(rf.mime_type, [])))
+            ext = self._export_format_extensions_for_file(rf)
             if ver.extensions != ext:
                 ver.extensions = ext
                 changed = True
@@ -242,7 +231,7 @@ class GoogleDriveSync:
 
     def _sync_new_file(self, session: Session,
                        rf: RemoteFile, lf: LocalFile | None = None) \
-            -> LocalFile:
+            -> bool:
         if not lf:
             lf = self._local_file_from_remote_file(rf)
             session.add(lf)
@@ -261,14 +250,16 @@ class GoogleDriveSync:
             session.flush()
             session.expire(lf, ['head_revision'])
             if lf.can_download:
-                self._download(rrf)
+                # self._download can return None when
+                # download was not necessary
+                if self._download(rrf) is False:
+                    return False
             else:
                 log.info('skipping non-downloadable file')
         elif isinstance(lf, LocalGoogleWorkspaceFile):
             rgwf = cast(RemoteGoogleWorkspaceFile, rf)
             ver = lf.head_version
-            formats = self._export_formats.get(rf.mime_type, [])
-            ext = list(map(lambda ef: ef.extension, formats))
+            formats = self._export_formats_for_file(rgwf)
             if ver and (ver.modified_time == rgwf.modified_time):
                 # This happens when can_download has changed or when
                 # the list of formats has changed
@@ -279,14 +270,15 @@ class GoogleDriveSync:
                 session.add(ver)
             session.flush()
             session.expire(lf, ['head_version'])
-            if lf.can_export and ext:
-                self._export(rgwf, formats)
+            if lf.can_export and formats:
+                if not self._export(rgwf, formats):
+                    return False
             else:
                 log.info('skipping non-exportable file')
 
         session.flush()
         self._update(rf, lf)
-        return lf
+        return True
 
     def sync(self) -> int:
         """Sync files from Google Drive.
@@ -296,13 +288,6 @@ class GoogleDriveSync:
         """  # noqa: DAR401
         makedirs(self.config.local.root_path, exist_ok=True)
 
-        for ftype, missing in self._unsupported_export_formats.items():
-            if missing:
-                unsup = set(map(lambda fmt: fmt.extension, missing))
-                _logger.warn('Unsupported export format(s) for type',
-                             unsupported_formats=unsup,
-                             type=ftype)
-
         with self.db.new_session() as session:
 
             local_tree = self.db.get_tree(session)
@@ -310,6 +295,9 @@ class GoogleDriveSync:
                 local_tree.flatten() if local_tree else {}
 
             remote_tree = self.gdservice.get_tree()
+            if remote_tree is None:
+                _logger.error('aborted - failed to fetch remote tree')
+                return 1
             remote_file_by_id = remote_tree.flatten()
 
             for fid, f in remote_file_by_id.items():
@@ -322,7 +310,10 @@ class GoogleDriveSync:
                         lf.obsolete_since = None  # type: ignore
                     else:
                         # file is new
-                        self._sync_new_file(session, f)
+                        if not self._sync_new_file(session, f):
+                            _logger.error(
+                                'aborted - failed to fetch file contents')
+                            return 1  # failed
                         continue
                 # file already existed
                 lf = local_file_by_id[fid]
@@ -341,7 +332,10 @@ class GoogleDriveSync:
                         if (old_ver.modified_time < f.modified_time):
                             old_ver.obsolete_since = datetime.now()
                             log.info('old GW file version marked for deletion')
-                    self._sync_new_file(session, f, lf)
+                    if not self._sync_new_file(session, f, lf):
+                        _logger.error(
+                            'aborted - failed to fetch file contents')
+                        return 1  # failed
                 elif self._update(f, lf):
                     # only metadata has changed
                     log.info('file metadata changed, contents are unchanged')
