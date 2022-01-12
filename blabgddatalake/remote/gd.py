@@ -2,15 +2,17 @@
 
 from __future__ import annotations
 
-from functools import lru_cache
 from hashlib import md5
 from pathlib import Path
 from typing import Any, Sequence, cast
 
+from google.auth.exceptions import GoogleAuthError as GAError
 from google.oauth2 import service_account
 from googleapiclient.discovery import Resource, build
+from googleapiclient.errors import Error as GDError
 from googleapiclient.http import HttpRequest, MediaIoBaseDownload
 from httplib2 import Http
+from httplib2.error import HttpLib2Error
 from structlog import getLogger
 
 import blabgddatalake.remote.file as remotef
@@ -65,8 +67,8 @@ class GoogleDriveService:
         s = build('drive', 'v3', credentials=cred, cache_discovery=False)
         return s
 
-    def _fetch_children(self,
-                        rd: remotef.RemoteDirectory) -> list[dict[str, Any]]:
+    def _fetch_children(
+            self, rd: remotef.RemoteDirectory) -> list[dict[str, Any]] | None:
         q_items = ['not trashed']
         if rd.id:
             q_items.append(f"'{rd.id}' in parents")
@@ -87,20 +89,28 @@ class GoogleDriveService:
         while page_token is not None or page == 0:
             request = self.service.files().list(pageToken=page_token, **params)
             log.debug('requesting directory', page=page)
-            results = request.execute(num_retries=self.num_retries)
+            try:
+                results = request.execute(num_retries=self.num_retries)
+            except (GDError, GAError, HttpLib2Error, TimeoutError):
+                log.exception('could not fetch children')
+                return None
             children += results['files']
             page_token = results.get('nextPageToken', None)
             page += 1
         return children
 
-    def _fetch_file_metadata(self, file_id: str) -> dict[str, Any]:
+    def _fetch_file_metadata(self, file_id: str) -> dict[str, Any] | None:
         request = self.service.files().get(
             fileId=file_id,
             supportsAllDrives=bool(self.gd_config.shared_drive_id),
             fields=self.FILE_FIELDS,
         )
-        return cast(dict[str, Any],
-                    request.execute(num_retries=self.num_retries))
+        try:
+            return cast(dict[str, Any],
+                        request.execute(num_retries=self.num_retries))
+        except (GDError, GAError, HttpLib2Error, TimeoutError):
+            _logger.exception('cannot fetch file metadata', file_id=file_id)
+            return None
 
     def _dl_media(self, request: HttpRequest, output_file: str) -> bool:
         """Use MediaIoBaseDownload to download a file.
@@ -112,12 +122,21 @@ class GoogleDriveService:
         Returns:
             whether the download completed successfully
         """
+        log = _logger.bind(output_file=output_file)
         with open(output_file, 'wb') as fd:
             downloader = MediaIoBaseDownload(fd, request)
             completed = False
             while not completed:
-                status, completed = downloader.next_chunk(
-                    num_retries=self.num_retries)
+                try:
+                    status, completed = downloader.next_chunk(
+                        num_retries=self.num_retries)
+                except (GDError, GAError, HttpLib2Error, TimeoutError):
+                    log.exception('failed to download file')
+                    return False
+                log = _logger.bind(output_file=output_file,
+                                   progress=status.progress())
+                log.debug('download progress')
+
         return True
 
     def fetch_regular_file_contents(self, file_id: str,
@@ -160,12 +179,16 @@ class GoogleDriveService:
         )
         return self._dl_media(request, output_file)
 
-    def _fill_children(self, rd: remotef.RemoteDirectory) -> None:
-        for f in self._fetch_children(rd):
+    def _fill_children(self, rd: remotef.RemoteDirectory) -> bool:
+        children = self._fetch_children(rd)
+        if children is None:
+            return False
+        for f in children:
             node: remotef.RemoteFile
             if f['mimeType'] == 'application/vnd.google-apps.folder':
                 subdir = remotef.RemoteDirectory.from_dict(f, rd)
-                self._fill_children(subdir)
+                if not self._fill_children(subdir):
+                    return False
                 node = subdir
             elif f['mimeType'].startswith('application/vnd.google-apps.'):
                 rgwf = remotegwf.RemoteGoogleWorkspaceFile.from_dict(f, rd)
@@ -174,8 +197,9 @@ class GoogleDriveService:
                 rrf = remoterf.RemoteRegularFile.from_dict(f, rd)
                 node = rrf
             rd.children.append(node)
+        return True
 
-    def get_tree(self) -> remotef.RemoteDirectory:
+    def get_tree(self) -> remotef.RemoteDirectory | None:
         """Fetch and return the directory tree from Google Drive.
 
         There is no depth limit.
@@ -187,7 +211,8 @@ class GoogleDriveService:
 
         Returns:
             an object representing the root directory defined
-            by the ``SubTreeRootId`` field of `gd_config`.
+            by the ``SubTreeRootId`` field of `gd_config`,
+            or ``None`` if some error occurred
         """
         this_id = (self.gd_config.sub_tree_root_id
                    or self.gd_config.shared_drive_id)
@@ -195,25 +220,13 @@ class GoogleDriveService:
             raise ValueError('root id cannot be empty or None')
         _logger.debug('requesting root directory', id=this_id)
         root_data = self._fetch_file_metadata(this_id)
+        if root_data is None:
+            return None
         root = remotef.RemoteDirectory.from_dict(root_data)
         root.is_root = True
-        self._fill_children(root)
+        if not self._fill_children(root):
+            return None
         return root
-
-    @lru_cache(maxsize=1)
-    def export_formats(self) -> dict[str, list[ExportFormat]]:
-        """Get the supported formats to export Google Workspace files.
-
-        Returns:
-            A dictionary mapping Google Workspace file MIME types to
-            the list of formats they can be exported to
-        """
-        request = self.service.about().get(fields='exportFormats')
-        result = request.execute(num_retries=self.num_retries)
-        return {
-            k: list(map(ExportFormat.from_mime_type, v))
-            for k, v in result['exportFormats'].items()
-        }
 
     @property
     def num_retries(self) -> int:
@@ -275,12 +288,11 @@ class GoogleDriveService:
                              md5_checksum=rf.md5_checksum)
                     return None
         log.info('downloading file')
-        self.fetch_regular_file_contents(rf.id, output_file)
-        return True
+        return self.fetch_regular_file_contents(rf.id, output_file)
 
     def export_file(self, rf: remotegwf.RemoteGoogleWorkspaceFile,
                     formats: list[ExportFormat],
-                    output_file_without_ext: str) -> bool | None:
+                    output_file_without_ext: str) -> bool:
         """Download a file exported from Google Drive.
 
         This method only applies to Google Workspace files.
