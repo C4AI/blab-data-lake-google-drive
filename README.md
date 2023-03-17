@@ -11,7 +11,7 @@ This tool keeps a local snapshot of the contents of a Google Drive directory and
 - Install [Poetry](https://python-poetry.org/):
 
 ```shell
-curl -sSL https://install.python-poetry.org | python3 - --preview
+curl -sSL https://install.python-poetry.org | python3 -
 ```
 
 - Install the dependencies using Poetry:
