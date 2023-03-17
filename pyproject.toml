@@ -50,7 +50,7 @@ optional = true
 [tool.poetry.group.test.dependencies]
 Faker = "^11.1.0"
 pyfakefs = "^4.5.3"
-sly = "^0.4"
+sly = "^0.5"
 
 [build-system]
 requires = ["poetry-core^1.2"]
